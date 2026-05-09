@@ -32,13 +32,6 @@ func AddRule(iface string, target netip.Prefix, priority Priority) (err error) {
 		}
 	}
 
-	defer func() {
-		closeErr := conn.Close()
-		if closeErr != nil {
-			err = fmt.Errorf("%w", closeErr)
-		}
-	}()
-
 	switch priority {
 	case PRIORITYHIGH:
 		err = filter.AddTargetToHighPriority(target.Addr())
