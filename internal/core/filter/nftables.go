@@ -64,6 +64,42 @@ func AddTargetToLowPriority(target netip.Addr) error {
 	return addIPToQoSMIPSet(nftablesCtx.conn, nftablesCtx.lowPrioSet, target)
 }
 
+func GetHighPrioIPs() ([]netip.Addr, error) {
+	nftCtx, err := newCtx()
+	if err != nil {
+		return nil, err
+	}
+
+	return getIPSetElements(nftCtx.conn, nftCtx.highPrioSet)
+}
+
+func GetLowPrioIPs() ([]netip.Addr, error) {
+	nftCtx, err := newCtx()
+	if err != nil {
+		return nil, err
+	}
+
+	return getIPSetElements(nftCtx.conn, nftCtx.lowPrioSet)
+}
+
+func getIPSetElements(conn *nftables.Conn, set *nftables.Set) ([]netip.Addr, error) {
+	elements, err := conn.GetSetElements(set)
+	if err != nil {
+		return nil, err
+	}
+
+	ips := make([]netip.Addr, 0, len(elements))
+	for _, element := range elements {
+		ip, ok := netip.AddrFromSlice(element.Key)
+		if !ok {
+			continue
+		}
+		ips = append(ips, ip)
+	}
+
+	return ips, nil
+}
+
 func DeleteTable() error {
 	conn, err := nftables.New()
 	if err != nil {
