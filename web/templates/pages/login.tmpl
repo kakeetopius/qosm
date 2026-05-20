@@ -4,29 +4,45 @@
 
 {{ block "meta" . }} {{ end }}
 
-<body class="bg-zinc-950 text-zinc-100 min-h-screen flex items-center justify-center">
+<body
+	class="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-zinc-100 flex items-center justify-center p-4">
 
-	<div class="w-full max-w-md bg-zinc-900 p-8 rounded-xl shadow-lg">
+	<div class="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/80 backdrop-blur p-8 shadow-2xl">
+		<div class="mb-8 text-center">
+			<h1 class="text-3xl font-bold tracking-tight">
+				QoS Manager
+			</h1>
 
-		<h1 class="text-2xl font-bold mb-6 text-center">
-			Login
-		</h1>
+			<p class="mt-2 text-sm text-zinc-400">
+				Network traffic prioritization system.
+			</p>
+		</div>
 
 		<!-- Login form -->
-		<form hx-post="/login" hx-target="#login-error" hx-swap="innerHTML" class="space-y-4">
+		<form hx-post="/login" hx-target="#login-error" hx-swap="innerHTML" class="space-y-5">
+			<div>
+				<label class="mb-2 block text-sm font-medium text-zinc-300">
+					Username
+				</label>
 
-			<input name="username" placeholder="Username"
-				class="w-full p-2 rounded bg-zinc-800 border border-zinc-700 focus:outline-none" />
+				<input name="username" placeholder="Enter your username"
+					class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm placeholder:text-zinc-500 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+			</div>
+			<div>
+				<label class="mb-2 block text-sm font-medium text-zinc-300">
+					Password
+				</label>
 
-			<input type="password" name="password" placeholder="Password"
-				class="w-full p-2 rounded bg-zinc-800 border border-zinc-700 focus:outline-none" />
-
-			<button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded font-semibold">
+				<input type="password" name="password" placeholder="Enter your password"
+					class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm placeholder:text-zinc-500 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+			</div>
+			<button type="submit"
+				class="w-full rounded-lg bg-blue-600 py-3 font-semibold transition hover:bg-blue-500 active:scale-[0.99]">
 				Login
 			</button>
 
-			<!-- error output goes here -->
-			<div id="login-error" class="text-center"></div>
+			<!-- Error output -->
+			<div id="login-error" class="min-h-[1.25rem] text-center text-sm text-red-400"></div>
 
 		</form>
 

@@ -36,6 +36,11 @@ func addRoutes(router *gin.Engine, app *ServerCtx) {
 
 	router.GET("/login", app.login)
 	router.POST("/login", app.loginPost)
+	router.GET("/dashboard", app.dashboard)
+	router.GET("/rules", app.rules)
+	router.GET("/analytics", app.analytics)
+	router.GET("/logs", app.logs)
+	router.GET("/settings", app.settings)
 }
 
 func embedFiles(router *gin.Engine) error {

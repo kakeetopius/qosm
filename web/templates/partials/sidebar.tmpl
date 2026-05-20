@@ -1,0 +1,49 @@
+{{ define "sidebar" }}
+
+<aside class="w-64 border-r border-zinc-800 bg-zinc-900/80 backdrop-blur">
+
+	<div class="border-b border-zinc-800 p-6">
+		<h1 class="text-2xl font-bold tracking-tight">
+			QoS Manager
+		</h1>
+
+		<p class="mt-1 text-sm text-zinc-400">
+			Network Control Panel
+		</p>
+	</div>
+
+	<nav class="p-4 space-y-2">
+
+		{{ $activeClass := "block rounded-lg bg-blue-600 px-4 py-3 font-medium text-white" }}
+		{{ $defaultClass := "block rounded-lg px-4 py-3 text-zinc-300 transition hover:bg-zinc-800 hover:text-white" }}
+		{{ $class := "" }}
+
+		{{ if eq .Path "/dashboard" }} {{ $class = $activeClass }} {{else}} {{ $class = $defaultClass }} {{end}}
+		<a href="/dashboard" class="{{$class}}">
+			Dashboard
+		</a>
+
+		{{ if eq .Path "/rules" }} {{ $class = $activeClass }} {{else}} {{ $class = $defaultClass }} {{end}}
+		<a href="/rules" class="{{$class}}">
+			Traffic Rules
+		</a>
+
+		{{ if eq .Path "/analytics" }} {{ $class = $activeClass }} {{else}} {{ $class = $defaultClass }} {{end}}
+		<a href="/analytics" class="{{$class}}">
+			Analytics
+		</a>
+
+		{{ if eq .Path "/logs" }} {{ $class = $activeClass }} {{else}} {{ $class = $defaultClass }} {{end}}
+		<a href="/logs" class="{{$class}}">
+			Logs
+		</a>
+
+		{{ if eq .Path "/settings" }} {{ $class = $activeClass }} {{else}} {{ $class = $defaultClass }} {{end}}
+		<a href="/settings" class="{{$class}}">
+			Settings
+		</a>
+
+	</nav>
+
+</aside>
+{{ end }}
