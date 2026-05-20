@@ -9,6 +9,7 @@ import (
 
 func Run() error {
 	router := gin.Default()
+	router.Use(ErrorHandler())
 
 	router.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "hello from qosm")
