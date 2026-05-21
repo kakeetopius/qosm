@@ -17,11 +17,15 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed templates
-var tmplFs embed.FS
-
 //go:embed static
 var staticFS embed.FS
+
+type ServerOptions struct {
+	Port            int
+	DBPath          string
+	SessionsEncKey  string
+	SessionsHashKey string
+}
 
 func Run() error {
 	router := gin.Default()
@@ -33,8 +37,7 @@ func Run() error {
 	router.HTMLRender = renderer
 
 	setUpSessionMgmt(router)
-
-	addEmbededFiles(router)
+	addStaticRoutes(router)
 
 	dbConn, err := db.Connect()
 	if err != nil {
@@ -45,7 +48,7 @@ func Run() error {
 		return err
 	}
 
-	ifaces, err := routes.GetInterfaces()
+	ifaces, err := db.GetInterfaces()
 	if err != nil {
 		return err
 	}
@@ -81,42 +84,54 @@ func addRoutes(router *gin.Engine, app *routes.ServerCtx) {
 	})
 
 	auth := router.Group("/")
-	auth.GET("/login", app.Login)
+	auth.GET("/login", app.LoginPage)
 	auth.POST("/login", app.LoginPost)
 
-	admin := router.Group("/", AuthRequired())
-	admin.GET("/dashboard", app.Dashboard)
-	admin.GET("/rules", app.Rules)
-	admin.GET("/analytics", app.Analytics)
-	admin.GET("/logs", app.Logs)
+	admin := router.Group("/", AuthRequired(app), ErrorHandlerToast(app))
+	admin.GET("/dashboard", app.DashboardPage)
+	admin.GET("/rules", app.RulesPage)
+	admin.GET("/analytics", app.AnalyticsPage)
+	admin.GET("/logs", app.LogsPage)
 
 	admin.GET("/settings", app.SettingsPage)
-	admin.POST("/settings/system/save", app.SaveSystemSettings)
-	admin.POST("/settings/interface/save", app.SaveInterfaceSettings)
-	admin.POST("settings/dns/save", app.SaveDNSSettings)
-	admin.POST("settings/security/save", app.SaveSecuritySettings)
+	admin.POST("/settings/system/save", app.PostSystemSettings)
+	admin.POST("/settings/interface/save", app.PostInterfaceSettings)
+	admin.POST("settings/dns/save", app.PostDNSSettings)
+	admin.POST("settings/security/save", app.PostSecuritySettings)
 
 	admin.GET("/logout", app.Logout)
-	admin.GET("/", app.Dashboard)
+	admin.GET("/", app.DashboardPage)
 }
 
-func addEmbededFiles(router *gin.Engine) error {
-	staticSubFS, err := fs.Sub(staticFS, "static")
+func addStaticRoutes(router *gin.Engine) error {
+	staticSubFS, err := fs.Sub(staticFS, "static/js")
 	if err != nil {
 		return err
 	}
-	router.StaticFS("/static", http.FS(staticSubFS))
+	router.StaticFS("/static/js", http.FS(staticSubFS))
+
+	staticSubFS, err = fs.Sub(staticFS, "static/css")
+	if err != nil {
+		return err
+	}
+	router.StaticFS("/static/css", http.FS(staticSubFS))
+
+	staticSubFS, err = fs.Sub(staticFS, "static/pictures")
+	if err != nil {
+		return err
+	}
+	router.StaticFS("/static/pictures", http.FS(staticSubFS))
 
 	return nil
 }
 
 func createRenderer() (multitemplate.Renderer, error) {
-	tmplSubFS, err := fs.Sub(tmplFs, "templates")
+	tmplSubFS, err := fs.Sub(staticFS, "static/templates")
 	if err != nil {
 		return nil, err
 	}
 
-	commonTemplates := []string{"partials/meta.tmpl", "partials/sidebar.tmpl", "partials/topbar.tmpl", "partials/fail.tmpl"}
+	commonTemplates := []string{"partials/meta.tmpl", "partials/sidebar.tmpl", "partials/topbar.tmpl"}
 	pages := []string{"dashboard", "rules", "analytics", "logs", "settings"}
 
 	r := multitemplate.NewRenderer()
@@ -128,5 +143,7 @@ func createRenderer() (multitemplate.Renderer, error) {
 
 	r.AddFromFS("login", tmplSubFS, "pages/login.tmpl", "partials/meta.tmpl", "partials/fail.tmpl")
 	r.AddFromFS("fail", tmplSubFS, "partials/fail.tmpl")
+	r.AddFromFS("toast_success", tmplSubFS, "partials/toast_success.tmpl")
+	r.AddFromFS("toast_error", tmplSubFS, "partials/toast_error.tmpl")
 	return r, nil
 }

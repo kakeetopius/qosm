@@ -9,7 +9,7 @@ import (
 	"github.com/kakeetopius/qosm/web/routes"
 )
 
-func ErrorHandler() gin.HandlerFunc {
+func ErrorHandlerJSON() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 
@@ -48,7 +48,25 @@ func ErrorHandlerHTML() gin.HandlerFunc {
 	}
 }
 
-func AuthRequired() gin.HandlerFunc {
+func ErrorHandlerToast(app *routes.ServerCtx) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.Next()
+
+		if len(ctx.Errors) == 0 {
+			return
+		}
+
+		err := ctx.Errors.Last().Err
+
+		app.Logger.Error("server_error", "Error", err.Error())
+
+		ctx.HTML(http.StatusOK, "toast_error", gin.H{
+			"Message": "Failed to apply settings: " + err.Error(),
+		})
+	}
+}
+
+func AuthRequired(app *routes.ServerCtx) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 

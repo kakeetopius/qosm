@@ -2,52 +2,13 @@
 package routes
 
 import (
-	"database/sql"
 	"fmt"
-	"log/slog"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/pam"
-	"github.com/kakeetopius/qosm/internal/core/tc"
-	"github.com/kakeetopius/qosm/web/db"
 )
-
-type Interface struct {
-	Name    string
-	Enabled bool
-	HTBCtx  *tc.HTBCtx
-}
-
-type ServerCtx struct {
-	DB       *sql.DB
-	Logger   *slog.Logger
-	Ifaces   map[string]Interface
-	Settings *db.Settings
-}
-
-func (app *ServerCtx) EnabledIfaces() []Interface {
-	ifaces := make([]Interface, 0, 5)
-
-	for _, iface := range app.Ifaces {
-		if !iface.Enabled {
-			continue
-		}
-		ifaces = append(ifaces, iface)
-	}
-
-	return ifaces
-}
-
-type ServerError struct {
-	StatusCode int
-	Err        error
-}
-
-func (e ServerError) Error() string {
-	return e.Err.Error()
-}
 
 func (app *ServerCtx) LoginPost(ctx *gin.Context) {
 	username := ctx.PostForm("username")
@@ -65,6 +26,7 @@ func (app *ServerCtx) LoginPost(ctx *gin.Context) {
 		return
 	}
 
+	app.Logger.Info("auth_successful", "username", username)
 	session := sessions.Default(ctx)
 	session.Options(sessions.Options{
 		MaxAge:   app.Settings.SessionTimeout * 60,
@@ -80,24 +42,27 @@ func (app *ServerCtx) LoginPost(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (app *ServerCtx) Login(c *gin.Context) {
+func (app *ServerCtx) LoginPage(c *gin.Context) {
 	c.HTML(http.StatusOK, "login", gin.H{
 		"Title": "Login - QoS Manager",
 	})
 }
 
-func (app *ServerCtx) Dashboard(c *gin.Context) {
+func (app *ServerCtx) DashboardPage(c *gin.Context) {
 	session := sessions.Default(c)
+	enabled := app.EnabledIfaces()
+
 	c.HTML(http.StatusOK, "dashboard", gin.H{
 		"Heading":     "Dashboard",
 		"Description": "Overview of network traffic and QoS policies",
 		"User":        session.Get("username"),
 		"Role":        session.Get("role"),
 		"Settings":    app.Settings,
+		"Enabled":     len(enabled) > 0,
 	})
 }
 
-func (app *ServerCtx) Rules(c *gin.Context) {
+func (app *ServerCtx) RulesPage(c *gin.Context) {
 	session := sessions.Default(c)
 
 	c.HTML(http.StatusOK, "rules", gin.H{
@@ -109,7 +74,7 @@ func (app *ServerCtx) Rules(c *gin.Context) {
 	})
 }
 
-func (app *ServerCtx) Analytics(c *gin.Context) {
+func (app *ServerCtx) AnalyticsPage(c *gin.Context) {
 	session := sessions.Default(c)
 	c.HTML(http.StatusOK, "analytics", gin.H{
 		"Heading":     "Analytics",
@@ -119,7 +84,7 @@ func (app *ServerCtx) Analytics(c *gin.Context) {
 	})
 }
 
-func (app *ServerCtx) Logs(c *gin.Context) {
+func (app *ServerCtx) LogsPage(c *gin.Context) {
 	session := sessions.Default(c)
 	c.HTML(http.StatusOK, "logs", gin.H{
 		"Heading":     "Logs",

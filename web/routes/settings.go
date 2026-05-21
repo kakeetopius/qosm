@@ -11,27 +11,30 @@ import (
 	"github.com/kakeetopius/qosm/web/db"
 )
 
-func (app *ServerCtx) SaveSystemSettings(c *gin.Context) {
+func (app *ServerCtx) PostSystemSettings(c *gin.Context) {
 	loggingLevel := c.PostForm("logging_level")
 	var maxBandwidth int
 	fmt.Sscanf(c.PostForm("max_bandwidth"), "%d", &maxBandwidth)
 
 	err := db.UpdateSettingField(app.DB, "logging_level", loggingLevel)
 	if err != nil {
-		app.Logger.Error(err.Error())
+		c.Error(err)
+		return
 	}
 	app.Settings.LoggingLevel = loggingLevel
 
 	err = db.UpdateSettingField(app.DB, "max_bandwidth", maxBandwidth)
 	if err != nil {
-		app.Logger.Error(err.Error())
+		c.Error(err)
+		return
 	}
+
 	app.Settings.MaxBandwidth = maxBandwidth
 
-	c.Status(http.StatusOK)
+	SendSuccessMessage(c)
 }
 
-func (app *ServerCtx) SaveInterfaceSettings(c *gin.Context) {
+func (app *ServerCtx) PostInterfaceSettings(c *gin.Context) {
 	ifaceNames := c.PostFormArray("interfaces")
 
 	var err error
@@ -42,43 +45,60 @@ func (app *ServerCtx) SaveInterfaceSettings(c *gin.Context) {
 			err = disableQoS(app, iface.Name)
 		}
 		if err != nil {
-			app.Logger.Error(err.Error())
+			c.Error(err)
+			return
 		}
 	}
 
-	c.Status(http.StatusOK)
+	SendSuccessMessage(c)
 }
 
-func (app *ServerCtx) SaveDNSSettings(c *gin.Context) {
+func (app *ServerCtx) PostDNSSettings(c *gin.Context) {
 	primaryDNS := c.PostForm("primary_dns")
 	dnsOverride := c.PostForm("dns_override") == "on"
 
 	err := db.UpdateSettingField(app.DB, "dns_override", dnsOverride)
 	if err != nil {
-		app.Logger.Error(err.Error())
+		c.Error(err)
+		return
 	}
 	app.Settings.DNSOverride = dnsOverride
 
+	ip := net.ParseIP(primaryDNS)
+	if ip == nil {
+		err = fmt.Errorf("invalid primary dns: %v", primaryDNS)
+		c.Error(err)
+		return
+	}
+
 	err = db.UpdateSettingField(app.DB, "primary_dns", primaryDNS)
 	if err != nil {
-		app.Logger.Error(err.Error())
+		c.Error(err)
+		return
 	}
 	app.Settings.PrimaryDNS = primaryDNS
 
-	c.Status(http.StatusOK)
+	SendSuccessMessage(c)
 }
 
-func (app *ServerCtx) SaveSecuritySettings(c *gin.Context) {
+func (app *ServerCtx) PostSecuritySettings(c *gin.Context) {
 	var sessionTimeout int
 
 	fmt.Sscanf(c.PostForm("session_timeout"), "%d", &sessionTimeout)
 	err := db.UpdateSettingField(app.DB, "session_timeout", sessionTimeout)
 	if err != nil {
-		app.Logger.Error(err.Error())
+		c.Error(err)
+		return
 	}
 	app.Settings.SessionTimeout = sessionTimeout
 
-	c.Status(http.StatusOK)
+	SendSuccessMessage(c)
+}
+
+func SendSuccessMessage(c *gin.Context) {
+	c.HTML(http.StatusOK, "toast_success", gin.H{
+		"Message": "Settings applied successfully ✔",
+	})
 }
 
 func enableQoS(app *ServerCtx, ifaceName string) error {
@@ -112,34 +132,4 @@ func disableQoS(app *ServerCtx, ifaceName string) error {
 	iface.Enabled = false
 	app.Ifaces[ifaceName] = iface
 	return nil
-}
-
-func GetInterfaces() (map[string]Interface, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-
-	ifaceMap := make(map[string]Interface)
-
-	for _, iface := range ifaces {
-		exists, err := tc.HasHTBQdisc(&iface)
-		if err != nil {
-			return nil, err
-		}
-		qosIface := Interface{
-			Name:    iface.Name,
-			Enabled: exists,
-		}
-		if exists {
-			htb, err := tc.NewHTBCtx(iface.Name)
-			if err != nil {
-				return nil, err
-			}
-			qosIface.HTBCtx = htb
-		}
-		ifaceMap[iface.Name] = qosIface
-	}
-
-	return ifaceMap, nil
 }
