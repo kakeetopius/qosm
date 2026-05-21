@@ -19,13 +19,18 @@ func SetUp(db *sql.DB) error {
 	schema := `
     CREATE TABLE IF NOT EXISTS settings (
         id INTEGER PRIMARY KEY,
-        qos_enabled BOOLEAN,
         logging_level TEXT DEFAULT 'Info',
         max_bandwidth INTEGER DEFAULT '1000',
-        interface TEXT,
         dns_override BOOLEAN,
         primary_dns TEXT,
         session_timeout INTEGER DEFAULT 5
+    );
+
+    CREATE TABLE IF NOT EXISTS interfaces (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        if_index INTEGER,
+        name TEXT,
+        enabled BOOLEAN
     );
 
     CREATE TABLE IF NOT EXISTS rules (

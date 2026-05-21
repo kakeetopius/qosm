@@ -3,26 +3,27 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
+	"slices"
 )
 
 type Settings struct {
-	QoSEnabled     bool   `form:"qos_enabled"`
 	LoggingLevel   string `form:"logging_level"`
 	MaxBandwidth   int    `form:"max_bandwidth"`
-	Interface      string `form:"interface"`
+	IfaceName      string `form:"interface"`
 	DNSOverride    bool   `form:"dns_override"`
 	PrimaryDNS     string `form:"primary_dns"`
 	SessionTimeout int    `form:"session_timeout"`
 }
 
 func LoadSettings(db *sql.DB) (*Settings, error) {
-	exists, err := checkSettingsExists(db)
+	exists, err := CheckSettingsExists(db)
 	if err != nil {
 		return nil, err
 	}
 
 	if exists {
-		return getSettingsRow(db)
+		return GetSettingsRow(db)
 	}
 
 	defaultSettings := Settings{
@@ -31,7 +32,7 @@ func LoadSettings(db *sql.DB) (*Settings, error) {
 		MaxBandwidth:   1000,
 	}
 
-	err = addSettingsRow(db, &defaultSettings)
+	err = AddSettingsRow(db, &defaultSettings)
 	if err != nil {
 		return nil, err
 	}
@@ -42,16 +43,14 @@ func UpdateSettings(db *sql.DB, s *Settings) error {
 	_, err := db.Exec(
 		`
     INSERT OR REPLACE INTO settings (
-        id, qos_enabled, logging_level, max_bandwidth,
-        interface, dns_override, primary_dns, session_timeout
+        id, logging_level, max_bandwidth,
+        dns_override, primary_dns, session_timeout
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?)
 `,
 		1,
-		s.QoSEnabled,
 		s.LoggingLevel,
 		s.MaxBandwidth,
-		s.Interface,
 		s.DNSOverride,
 		s.PrimaryDNS,
 		s.SessionTimeout,
@@ -60,7 +59,23 @@ func UpdateSettings(db *sql.DB, s *Settings) error {
 	return err
 }
 
-func checkSettingsExists(db *sql.DB) (bool, error) {
+func UpdateSettingField(db *sql.DB, field string, value any) error {
+	allowed := []string{"logging_level", "max_bandwidth", "dns_override", "primary_dns", "session_timeout"}
+	if !slices.Contains(allowed, field) {
+		return fmt.Errorf("unknown field: %v", field)
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE settings
+		SET %s = ?
+		WHERE id = 1
+	`, field)
+
+	_, err := db.Exec(query, value)
+	return err
+}
+
+func CheckSettingsExists(db *sql.DB) (bool, error) {
 	var exists bool
 
 	err := db.QueryRow(`
@@ -77,20 +92,18 @@ func checkSettingsExists(db *sql.DB) (bool, error) {
 	return exists, nil
 }
 
-func addSettingsRow(db *sql.DB, settings *Settings) error {
+func AddSettingsRow(db *sql.DB, settings *Settings) error {
 	_, err := db.Exec(
 		`
     INSERT OR IGNORE INTO settings (
-        id, qos_enabled, logging_level, max_bandwidth,
-        interface, dns_override, primary_dns, session_timeout
+        id,  logging_level, max_bandwidth,
+        dns_override, primary_dns, session_timeout
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?)
 `,
 		1,
-		settings.QoSEnabled,
 		settings.LoggingLevel,
 		settings.MaxBandwidth,
-		settings.Interface,
 		settings.DNSOverride,
 		settings.PrimaryDNS,
 		settings.SessionTimeout,
@@ -99,26 +112,23 @@ func addSettingsRow(db *sql.DB, settings *Settings) error {
 	return err
 }
 
-func getSettingsRow(db *sql.DB) (*Settings, error) {
+func GetSettingsRow(db *sql.DB) (*Settings, error) {
 	var (
-		qosEnabled  int
 		dnsOverride int
 		s           Settings
 	)
 
 	row := db.QueryRow(`
-        SELECT qos_enabled, logging_level, max_bandwidth,
-               interface, dns_override, primary_dns,
-               session_timeout
+        SELECT  logging_level, max_bandwidth,
+                dns_override, primary_dns,
+                session_timeout
         FROM settings
         WHERE id = 1
     `)
 
 	err := row.Scan(
-		&qosEnabled,
 		&s.LoggingLevel,
 		&s.MaxBandwidth,
-		&s.Interface,
 		&dnsOverride,
 		&s.PrimaryDNS,
 		&s.SessionTimeout,
@@ -127,7 +137,6 @@ func getSettingsRow(db *sql.DB) (*Settings, error) {
 		return nil, err
 	}
 
-	s.QoSEnabled = qosEnabled == 1
 	s.DNSOverride = dnsOverride == 1
 
 	return &s, nil

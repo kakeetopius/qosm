@@ -14,11 +14,30 @@ import (
 	"github.com/kakeetopius/qosm/web/db"
 )
 
+type Interface struct {
+	Name    string
+	Enabled bool
+	HTBCtx  *tc.HTBCtx
+}
+
 type ServerCtx struct {
 	DB       *sql.DB
 	Logger   *slog.Logger
-	HtbCtx   *tc.HTBCtx
+	Ifaces   map[string]Interface
 	Settings *db.Settings
+}
+
+func (app *ServerCtx) EnabledIfaces() []Interface {
+	ifaces := make([]Interface, 0, 5)
+
+	for _, iface := range app.Ifaces {
+		if !iface.Enabled {
+			continue
+		}
+		ifaces = append(ifaces, iface)
+	}
+
+	return ifaces
 }
 
 type ServerError struct {
@@ -86,6 +105,7 @@ func (app *ServerCtx) Rules(c *gin.Context) {
 		"Description": "Define how network traffic should be prioritized or limited",
 		"User":        session.Get("username"),
 		"Role":        session.Get("role"),
+		"Ifaces":      app.EnabledIfaces(),
 	})
 }
 
@@ -117,6 +137,7 @@ func (app *ServerCtx) SettingsPage(c *gin.Context) {
 		"User":        session.Get("username"),
 		"Role":        session.Get("role"),
 		"Settings":    app.Settings,
+		"Ifaces":      app.Ifaces,
 	})
 }
 

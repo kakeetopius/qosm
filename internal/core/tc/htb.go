@@ -51,6 +51,23 @@ func NewHTBCtx(iface string) (*HTBCtx, error) {
 	return htbCtx, nil
 }
 
+func HasHTBQdisc(iface *net.Interface) (bool, error) {
+	tcnl, err := tc.Open(&tc.Config{})
+	if err != nil {
+		return false, err
+	}
+
+	_, err = findRootQdisc(tcnl, iface)
+	if err != nil {
+		if errors.Is(err, ErrQdiscNotFound) {
+			return false, nil
+		}
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
 // AddRule adds a traffic rule for the given network prefixes with the specified priority level.
 func (c *HTBCtx) AddRule(target []netip.Prefix, priority Priority) (err error) {
 	switch priority {
@@ -73,13 +90,17 @@ func (c *HTBCtx) Close() error {
 	return c.Conn.Close()
 }
 
-// FlushQdisc removes the qdisc and its associated filter rules.
-func (c *HTBCtx) FlushQdisc() error {
+// FlushQdiscAndFilters removes the qdisc and its associated filter rules.
+func (c *HTBCtx) FlushQdiscAndFilters() error {
 	err := deleteQdisc(c.Conn, c.Root)
 	if err != nil {
 		return err
 	}
 	return c.Filter.DeleteTable()
+}
+
+func (c *HTBCtx) FlushQdisc() error {
+	return deleteQdisc(c.Conn, c.Root)
 }
 
 // FlushQdisc removes the qdisc and filter rules for the given interface.

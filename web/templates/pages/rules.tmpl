@@ -36,9 +36,9 @@
 					</label>
 
 					<select name="interface" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2">
-						<option value="eth0">eth0</option>
-						<option value="wlan0">wlan0</option>
-						<option value="any">any</option>
+						{{ range .Ifaces }}
+						<option value="{{.Name}}">{{.Name}}</option>
+						{{ end }}
 					</select>
 				</div>
 

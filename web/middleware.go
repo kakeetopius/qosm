@@ -55,6 +55,11 @@ func AuthRequired() gin.HandlerFunc {
 		username := session.Get("username")
 
 		if username == nil {
+			if ctx.GetHeader("HX-Request") == "true" {
+				ctx.Header("HX-Redirect", "/login")
+				ctx.AbortWithStatus(http.StatusOK)
+				return
+			}
 			ctx.Redirect(http.StatusFound, "/login")
 			ctx.Abort()
 			return

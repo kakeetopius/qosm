@@ -1,21 +1,11 @@
 {{ define "content" }}
-<form hx-post="/settings/save" hx-target="#error" hx-swap="innerHTML">
-	<main class="flex-1 p-8 space-y-8">
-		<!-- System Settings -->
+<main class="flex-1 p-8 space-y-8">
+
+	<!-- ================= SYSTEM SETTINGS ================= -->
+	<form hx-post="/settings/system/save" hx-swap="none">
 		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
 
 			<h3 class="text-lg font-semibold">System Settings</h3>
-
-			<!-- QoS Engine Toggle -->
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="font-medium">QoS Engine</p>
-					<p class="text-sm text-zinc-400">Enable or disable traffic shaping</p>
-				</div>
-
-				<input name="qos_enabled" type="checkbox" class="w-5 h-5 accent-blue-600" {{ if .Settings.QoSEnabled
-					}}checked{{end}}>
-			</div>
 
 			<!-- Logging Level -->
 			<div>
@@ -24,10 +14,22 @@
 				</label>
 
 				<select name="logging_level" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
-					<option {{ if eq .Settings.LoggingLevel "Info" }} selected {{ end }}>Info</option>
-					<option {{ if eq .Settings.LoggingLevel "Warning" }} selected {{ end }}>Warning</option>
-					<option {{ if eq .Settings.LoggingLevel "Error" }} selected {{ end }}>Error Only</option>
-					<option {{ if eq .Settings.LoggingLevel "Debug" }} selected {{ end }}>Debug</option>
+
+					<option {{ if eq .Settings.LoggingLevel "Info" }}selected{{ end }}>
+						Info
+					</option>
+
+					<option {{ if eq .Settings.LoggingLevel "Warning" }}selected{{ end }}>
+						Warning
+					</option>
+
+					<option {{ if eq .Settings.LoggingLevel "Error" }}selected{{ end }}>
+						Error Only
+					</option>
+
+					<option {{ if eq .Settings.LoggingLevel "Debug" }}selected{{ end }}>
+						Debug
+					</option>
 				</select>
 			</div>
 
@@ -41,36 +43,57 @@
 					class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
 			</div>
 
-		</section>
+			<div class="flex justify-end pt-2">
+				<button type="submit"
+					class="bg-blue-950 hover:bg-blue-900 border border-blue-900 transition px-5 py-2 rounded-lg font-medium text-blue-200">
+					Save
+				</button>
+			</div>
 
-		<!-- Network Settings -->
+		</section>
+	</form>
+
+	<!-- ================= INTERFACE SETTINGS ================= -->
+	<form hx-post="/settings/interface/save" hx-swap="none">
 		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
 
-			<h3 class="text-lg font-semibold">Network Settings</h3>
+			<h3 class="text-lg font-semibold">Interface Settings</h3>
+			<p class="text-sm text-zinc-400">
+				Enable QoS on interfaces
+			</p>
 
-			<!-- Default Interface -->
-			<div>
-				<label class="block text-sm text-zinc-300 mb-2">
-					Default Interface
+			<div class="space-y-4">
+				{{ range .Ifaces }}
+				<label
+					class="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 cursor-pointer hover:border-zinc-700 transition">
+
+					<div>
+						<p class="font-medium">{{ .Name }}</p>
+
+					</div>
+
+					<input type="checkbox" name="interfaces" value="{{ .Name }}" class="w-5 h-5 accent-blue-600" {{ if
+						.Enabled }}checked{{ end }}>
 				</label>
+				{{ end }}
 
-				<select name="interface" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
-					<option>eth0</option>
-					<option>wlo1</option>
-					<option>auto</option>
-				</select>
 			</div>
 
-			<!-- DNS Override -->
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="font-medium">DNS Override</p>
-					<p class="text-sm text-zinc-400">Force custom DNS resolution</p>
-				</div>
-
-				<input name="dns_override" type="checkbox" class="w-5 h-5 accent-blue-600" {{ if .Settings.DNSOverride
-					}}checked{{ end }}>
+			<div class="flex justify-end pt-2">
+				<button type="submit"
+					class="bg-blue-950 hover:bg-blue-900 border border-blue-900 transition px-5 py-2 rounded-lg font-medium text-blue-200">
+					Save
+				</button>
 			</div>
+
+		</section>
+	</form>
+
+	<!-- ================= DNS SETTINGS ================= -->
+	<form hx-post="/settings/dns/save" hx-swap="none">
+		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
+
+			<h3 class="text-lg font-semibold">DNS Settings</h3>
 
 			<!-- Primary DNS -->
 			<div>
@@ -78,22 +101,47 @@
 					Primary DNS
 				</label>
 
-				<input name="primary_dns" type="text" placeholder="{{ .Settings.PrimaryDNS }}"
+				<input name="primary_dns" type="text" value="{{ .Settings.PrimaryDNS }}"
 					class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
 			</div>
 
-		</section>
+			<!-- DNS Override -->
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="font-medium">DNS Override</p>
+					<p class="text-sm text-zinc-400">
+						Force custom DNS resolution
+					</p>
+				</div>
 
-		<!-- Security Settings -->
+				<input name="dns_override" type="checkbox" class="w-5 h-5 accent-blue-600" {{ if .Settings.DNSOverride
+					}}checked{{ end }}>
+			</div>
+
+			<div class="flex justify-end pt-2">
+				<button type="submit"
+					class="bg-blue-950 hover:bg-blue-900 border border-blue-900 transition px-5 py-2 rounded-lg font-medium text-blue-200">
+					Save
+				</button>
+			</div>
+
+		</section>
+	</form>
+
+
+	<!-- ================= SECURITY SETTINGS ================= -->
+	<form hx-post="/settings/security/save" hx-swap="none">
 		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
 
-			<h3 class="text-lg font-semibold">Security</h3>
+			<h3 class="text-lg font-semibold">Security Settings</h3>
 
 			<!-- Admin Access -->
 			<div class="flex items-center justify-between">
 				<div>
 					<p class="font-medium">Admin Access</p>
-					<p class="text-sm text-zinc-400">Restrict configuration access</p>
+					<p class="text-sm text-zinc-400">
+						Restrict configuration access
+					</p>
 				</div>
 
 				<input type="checkbox" checked class="w-5 h-5 accent-blue-600">
@@ -109,17 +157,15 @@
 					class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
 			</div>
 
+			<div class="flex justify-end pt-2">
+				<button type="submit"
+					class="bg-blue-950 hover:bg-blue-900 border border-blue-900 transition px-5 py-2 rounded-lg font-medium text-blue-200">
+					Save
+				</button>
+			</div>
+
 		</section>
+	</form>
 
-		<!-- Save Button -->
-		<div class="flex justify-end">
-			<button type="submit" class="bg-blue-600 hover:bg-blue-500 transition px-6 py-3 rounded-lg font-semibold">
-				Save Settings
-			</button>
-		</div>
-
-		<!-- Error output -->
-		<div id="error" class="min-h-[1.25rem] text-center text-sm text-red-400"></div>
-	</main>
-</form>
+</main>
 {{ end }}

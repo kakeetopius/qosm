@@ -45,16 +45,21 @@ func Run() error {
 		return err
 	}
 
-	app := routes.ServerCtx{
-		Logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)),
-		DB:     dbConn,
+	ifaces, err := routes.GetInterfaces()
+	if err != nil {
+		return err
 	}
-
 	settings, err := db.LoadSettings(dbConn)
 	if err != nil {
 		return err
 	}
-	app.ApplySettings(settings)
+
+	app := routes.ServerCtx{
+		Logger:   slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+		DB:       dbConn,
+		Ifaces:   ifaces,
+		Settings: settings,
+	}
 
 	addRoutes(router, &app)
 
@@ -84,8 +89,13 @@ func addRoutes(router *gin.Engine, app *routes.ServerCtx) {
 	admin.GET("/rules", app.Rules)
 	admin.GET("/analytics", app.Analytics)
 	admin.GET("/logs", app.Logs)
+
 	admin.GET("/settings", app.SettingsPage)
-	admin.POST("/settings/save", app.SaveSettings)
+	admin.POST("/settings/system/save", app.SaveSystemSettings)
+	admin.POST("/settings/interface/save", app.SaveInterfaceSettings)
+	admin.POST("settings/dns/save", app.SaveDNSSettings)
+	admin.POST("settings/security/save", app.SaveSecuritySettings)
+
 	admin.GET("/logout", app.Logout)
 	admin.GET("/", app.Dashboard)
 }
