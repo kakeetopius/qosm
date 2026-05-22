@@ -28,7 +28,9 @@ func (c *HTBCtx) InitHTBIface(ifaces ...string) error {
 		return fmt.Errorf("no interface given")
 	}
 
-	c.HTBIfaces = make(map[int]HTBIface)
+	if c.HTBIfaces == nil {
+		c.HTBIfaces = make(map[int]HTBIface)
+	}
 	for _, iface := range ifaces {
 		dev, err := net.InterfaceByName(iface)
 		if err != nil {

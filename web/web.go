@@ -5,6 +5,7 @@ import (
 	"embed"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/kakeetopius/qosm/internal/core/tc"
 	"github.com/kakeetopius/qosm/web/db"
 	"github.com/kakeetopius/qosm/web/routes"
 	_ "modernc.org/sqlite"
@@ -48,7 +50,7 @@ func Run() error {
 		return err
 	}
 
-	ifaces, err := db.GetInterfaces()
+	htbCtx, err := setUpHTBContext()
 	if err != nil {
 		return err
 	}
@@ -57,10 +59,16 @@ func Run() error {
 		return err
 	}
 
+	ifaces, err := initNetInterface()
+	if err != nil {
+		return err
+	}
+
 	app := routes.ServerCtx{
 		Logger:   slog.New(slog.NewJSONHandler(os.Stdout, nil)),
 		DB:       dbConn,
 		Ifaces:   ifaces,
+		HTBCtx:   htbCtx,
 		Settings: settings,
 	}
 
@@ -148,4 +156,40 @@ func createRenderer() (multitemplate.Renderer, error) {
 	r.AddFromFS("toast_success", tmplSubFS, "partials/toast_success.tmpl")
 	r.AddFromFS("toast_error", tmplSubFS, "partials/toast_error.tmpl")
 	return r, nil
+}
+
+func setUpHTBContext() (*tc.HTBCtx, error) {
+	htbCtx, err := tc.NewHTBCtx()
+	if err != nil {
+		return nil, err
+	}
+
+	err = htbCtx.InitHTBFilter(true)
+	if err != nil {
+		return nil, err
+	}
+
+	return htbCtx, nil
+}
+
+func initNetInterface() (map[string]routes.Interface, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	netIfaces := make(map[string]routes.Interface, len(ifaces))
+	for _, iface := range ifaces {
+		enabled, err := tc.HasHTBQdisc(&iface)
+		if err != nil {
+			return nil, err
+		}
+
+		netIfaces[iface.Name] = routes.Interface{
+			Interface: iface,
+			Enabled:   enabled,
+		}
+	}
+
+	return netIfaces, nil
 }

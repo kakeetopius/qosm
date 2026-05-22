@@ -70,7 +70,6 @@ func (app *ServerCtx) RulesPage(c *gin.Context) {
 		"Description": "Define how network traffic should be prioritized or limited",
 		"User":        session.Get("username"),
 		"Role":        session.Get("role"),
-		"Ifaces":      app.EnabledIfaces(),
 	})
 }
 

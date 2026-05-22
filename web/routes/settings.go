@@ -110,37 +110,43 @@ func SendSuccessMessage(c *gin.Context, message ...string) {
 
 func enableQoS(app *ServerCtx, ifaceName string) error {
 	iface := app.Ifaces[ifaceName]
+
 	if iface.Enabled {
 		return nil
 	}
-	htbCtx, err := tc.NewHTBCtx()
+	err := app.HTBCtx.InitHTBIface(ifaceName)
 	if err != nil {
 		return err
 	}
-	err = htbCtx.InitHTBIface(ifaceName)
+
+	err = app.HTBCtx.NFTFilter.AddIfaceRules(iface.Index)
 	if err != nil {
 		return err
 	}
+
 	iface.Enabled = true
-	iface.HTBCtx = htbCtx
 	app.Ifaces[ifaceName] = iface
 
 	return nil
 }
 
 func disableQoS(app *ServerCtx, ifaceName string) error {
-	// iface := app.Ifaces[ifaceName]
-	// if !iface.Enabled {
-	// 	return nil
-	// }
-	// if iface.HTBCtx != nil {
-	// 	err := iface.HTBCtx.FlushQdisc()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	//
-	// iface.Enabled = false
-	// app.Ifaces[ifaceName] = iface
+	iface := app.Ifaces[ifaceName]
+	if !iface.Enabled {
+		return nil
+	}
+
+	err := tc.FlushQdisc(ifaceName)
+	if err != nil {
+		return err
+	}
+
+	err = app.HTBCtx.NFTFilter.DeleteIfaceRules(iface.Index)
+	if err != nil {
+		return err
+	}
+
+	iface.Enabled = false
+	app.Ifaces[ifaceName] = iface
 	return nil
 }

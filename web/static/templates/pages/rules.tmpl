@@ -29,18 +29,6 @@
 						class="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2" />
 				</div>
 
-				<!-- Interface -->
-				<div>
-					<label class="block text-sm text-zinc-300 mb-2">
-						Network Interface
-					</label>
-
-					<select name="interface" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2">
-						{{ range .Ifaces }}
-						<option value="{{.Name}}">{{.Name}}</option>
-						{{ end }}
-					</select>
-				</div>
 
 				<!-- Priority -->
 				<div>
