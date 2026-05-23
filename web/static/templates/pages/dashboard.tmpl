@@ -83,15 +83,13 @@
 			<table class="w-full text-left">
 
 				<thead class="border-b border-zinc-800 bg-zinc-950/50">
-
 					<tr>
-
 						<th class="px-6 py-4 text-sm font-medium text-zinc-400">
-							IP Address
+							Type
 						</th>
 
 						<th class="px-6 py-4 text-sm font-medium text-zinc-400">
-							Domain
+							Target
 						</th>
 
 						<th class="px-6 py-4 text-sm font-medium text-zinc-400">
@@ -99,113 +97,41 @@
 						</th>
 
 						<th class="px-6 py-4 text-sm font-medium text-zinc-400">
-							Status
+							Created At
 						</th>
-
-						<th class="px-6 py-4 text-sm font-medium text-zinc-400">
-							Actions
-						</th>
-
 					</tr>
-
 				</thead>
 
 				<tbody>
-
+					{{ range .Rules }}
 					<tr class="border-b border-zinc-800">
-
 						<td class="px-6 py-4">
-							192.168.1.20
+							{{ .Type }}
 						</td>
 
 						<td class="px-6 py-4">
-							youtube.com
+							{{ .Target }}
 						</td>
 
-						<td class="px-6 py-4">
-							<span class="rounded-full bg-yellow-500/20 px-3 py-1 text-sm text-yellow-400">
-								Medium
+						<td class="py-3 px-3">
+							{{ if eq .Priority "high" }}
+							<span class="px-2 py-1 rounded bg-green-500/10 text-green-400 text-xs">
+								high
 							</span>
-						</td>
-
-						<td class="px-6 py-4">
-							<span class="text-green-400">
-								Active
+							{{ else if eq .Priority "low" }}
+							<span class="px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 text-xs">
+								low
 							</span>
+							{{ end }}
 						</td>
 
 						<td class="px-6 py-4">
-							<button class="text-sm text-blue-400 hover:text-blue-300">
-								Edit
-							</button>
+							{{ .CreatedAt }}
 						</td>
-
 					</tr>
-
-					<tr class="border-b border-zinc-800">
-
-						<td class="px-6 py-4">
-							192.168.1.45
-						</td>
-
-						<td class="px-6 py-4">
-							netflix.com
-						</td>
-
-						<td class="px-6 py-4">
-							<span class="rounded-full bg-red-500/20 px-3 py-1 text-sm text-red-400">
-								Low
-							</span>
-						</td>
-
-						<td class="px-6 py-4">
-							<span class="text-green-400">
-								Active
-							</span>
-						</td>
-
-						<td class="px-6 py-4">
-							<button class="text-sm text-blue-400 hover:text-blue-300">
-								Edit
-							</button>
-						</td>
-
-					</tr>
-
-					<tr>
-
-						<td class="px-6 py-4">
-							192.168.1.12
-						</td>
-
-						<td class="px-6 py-4">
-							zoom.us
-						</td>
-
-						<td class="px-6 py-4">
-							<span class="rounded-full bg-green-500/20 px-3 py-1 text-sm text-green-400">
-								High
-							</span>
-						</td>
-
-						<td class="px-6 py-4">
-							<span class="text-green-400">
-								Active
-							</span>
-						</td>
-
-						<td class="px-6 py-4">
-							<button class="text-sm text-blue-400 hover:text-blue-300">
-								Edit
-							</button>
-						</td>
-
-					</tr>
-
+					{{ end }}
 				</tbody>
-
 			</table>
-
 		</div>
 
 	</section>

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/netip"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/tc"
@@ -20,10 +21,11 @@ type PostForm struct {
 }
 
 type Rule struct {
-	ID       int
-	Target   string
-	Type     string
-	Priority string
+	ID        int
+	Target    string
+	Type      string
+	Priority  string
+	CreatedAt time.Time
 }
 
 func (app *ServerCtx) PostRules(c *gin.Context) {
@@ -133,10 +135,11 @@ func addDomainRule(app *ServerCtx, domain string, priority string) (Rule, error)
 	}
 
 	return Rule{
-		Type:     "domain",
-		Priority: rule.Priority,
-		Target:   rule.DomainName,
-		ID:       rule.ID,
+		Type:      "domain",
+		Priority:  rule.Priority,
+		Target:    rule.DomainName,
+		ID:        rule.ID,
+		CreatedAt: rule.CreatedAt,
 	}, nil
 }
 
@@ -184,10 +187,11 @@ func addIPRule(app *ServerCtx, ip string, priority string) (Rule, error) {
 	}
 
 	return Rule{
-		Type:     "ip",
-		Priority: rule.Priority,
-		Target:   rule.IP,
-		ID:       rule.ID,
+		Type:      "ip",
+		Priority:  rule.Priority,
+		Target:    rule.IP,
+		ID:        rule.ID,
+		CreatedAt: rule.CreatedAt,
 	}, nil
 }
 
@@ -259,19 +263,21 @@ func getAllRules(app *ServerCtx) ([]Rule, error) {
 	rules := make([]Rule, 0, len(ipRules)+len(domainRules))
 	for _, rule := range ipRules {
 		rules = append(rules, Rule{
-			ID:       rule.ID,
-			Priority: rule.Priority,
-			Target:   rule.IP,
-			Type:     "ip",
+			ID:        rule.ID,
+			Priority:  rule.Priority,
+			Target:    rule.IP,
+			Type:      "ip",
+			CreatedAt: rule.CreatedAt,
 		})
 	}
 
 	for _, rule := range domainRules {
 		rules = append(rules, Rule{
-			ID:       rule.ID,
-			Priority: rule.Priority,
-			Target:   rule.DomainName,
-			Type:     "domain",
+			ID:        rule.ID,
+			Priority:  rule.Priority,
+			Target:    rule.DomainName,
+			Type:      "domain",
+			CreatedAt: rule.CreatedAt,
 		})
 	}
 

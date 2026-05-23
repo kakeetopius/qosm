@@ -6,7 +6,7 @@
 		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
 			<form hx-post="/rules/create" hx-target="#rules-table" hx-swap="beforeend" class="space-y-5">
 
-				<!-- Rule Type -->
+				<!-- rule type -->
 				<div>
 					<label class="block text-sm text-zinc-300 mb-2">
 						Rule Type
@@ -18,7 +18,7 @@
 					</select>
 				</div>
 
-				<!-- Target -->
+				<!-- target -->
 				<div>
 					<label class="block text-sm text-zinc-300 mb-2">
 						IP Address / Domain
@@ -29,7 +29,7 @@
 				</div>
 
 
-				<!-- Priority -->
+				<!-- priority -->
 				<div>
 					<label class="block text-sm text-zinc-300 mb-2">
 						Priority Level
@@ -42,13 +42,13 @@
 				</div>
 
 
-				<!-- Submit -->
+				<!-- submit -->
 				<button type="submit"
 					class="w-full rounded-lg bg-blue-600 py-3 font-semibold hover:bg-blue-500 transition">
 					Add Rule
 				</button>
 
-				<!-- Result -->
+				<!-- result -->
 				<div id="rule-result" class="text-sm text-center text-zinc-400"></div>
 
 			</form>
@@ -101,16 +101,17 @@
 						<th class="py-2 px-3">Type</th>
 						<th class="py-2 px-3">Target</th>
 						<th class="py-2 px-3">Priority</th>
+						<th class="py-2 px-3">Created At</th>
 						<th class="py-2 px-3 text-right">Actions</th>
 					</tr>
 				</thead>
 
 				<tbody id="rules-table" class="divide-y divide-zinc-800">
-
 					{{ range .Rules }}
 					<tr class="hover:bg-zinc-800/50 transition">
 						<td class="py-3 px-3 text-zinc-300">{{ .Type }}</td>
 						<td class="py-3 px-3">{{ .Target }}</td>
+
 						<td class="py-3 px-3">
 							{{ if eq .Priority "high" }}
 							<span class="px-2 py-1 rounded bg-green-500/10 text-green-400 text-xs">
@@ -122,6 +123,11 @@
 							</span>
 							{{ end }}
 						</td>
+
+						<td class="py-3 px-3 text-zinc-400 text-sm">
+							{{ .CreatedAt }}
+						</td>
+
 						<td class="py-3 px-3 text-right">
 							<button hx-delete="/rules/{{ .Type }}/{{ .ID }}" hx-target="closest tr" hx-swap="outerHTML"
 								class="text-red-400 hover:text-red-300 text-xs">

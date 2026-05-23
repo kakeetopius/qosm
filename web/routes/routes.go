@@ -4,6 +4,7 @@ package routes
 import (
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -51,6 +52,18 @@ func (app *ServerCtx) LoginPage(c *gin.Context) {
 func (app *ServerCtx) DashboardPage(c *gin.Context) {
 	session := sessions.Default(c)
 	enabled := app.EnabledIfaces()
+	rules, err := getAllRules(app)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	slices.SortFunc(rules, func(a, b Rule) int {
+		return -a.CreatedAt.Compare(b.CreatedAt)
+	})
+
+	if len(rules) > 5 {
+		rules = rules[:5]
+	}
 
 	c.HTML(http.StatusOK, "dashboard", gin.H{
 		"Heading":     "Dashboard",
@@ -59,6 +72,7 @@ func (app *ServerCtx) DashboardPage(c *gin.Context) {
 		"Role":        session.Get("role"),
 		"Settings":    app.Settings,
 		"Enabled":     len(enabled) > 0,
+		"Rules":       rules,
 	})
 }
 
