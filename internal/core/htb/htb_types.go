@@ -2,6 +2,7 @@ package htb
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/florianl/go-tc"
@@ -92,4 +93,15 @@ func (f ErrClassNotFound) Error() string {
 
 func (f ErrFilterNotFound) Error() string {
 	return "filter " + f.FilterName + " not found"
+}
+
+func PriorityFromString(prioString string) (Priority, error) {
+	switch prioString {
+	case "high":
+		return PRIORITYHIGH, nil
+	case "low":
+		return PRIORITYLOW, nil
+	}
+
+	return 0, fmt.Errorf("unknown priority: %v", prioString)
 }

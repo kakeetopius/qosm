@@ -97,6 +97,26 @@ func (c *HTBCtx) AddRule(target []netip.Prefix, priority Priority) (err error) {
 	return nil
 }
 
+func (c *HTBCtx) DelRule(target []netip.Prefix, priority Priority) (err error) {
+	if c.NFTFilter == nil {
+		return fmt.Errorf(" HTB filter uninitialised")
+	}
+
+	switch priority {
+	case PRIORITYHIGH:
+		err = c.NFTFilter.DeleteTargetFromHighPriority(target)
+	case PRIORITYLOW:
+		err = c.NFTFilter.DeleteTargetFromLowPriority(target)
+	default:
+		return fmt.Errorf("unknown priority %v", priority)
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *HTBCtx) FlushQdisc(ifIndex int) error {
 	util.Debug(c.Logger, "htb: delete_qdisc", "ifIndex", ifIndex)
 	qdisc := c.HTBIfaces[ifIndex]

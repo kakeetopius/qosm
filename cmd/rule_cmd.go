@@ -9,6 +9,7 @@ import (
 	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/dns"
 	"github.com/kakeetopius/qosm/internal/rules"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -26,6 +27,7 @@ func RuleCmd() *cobra.Command {
 		RuleDeleteCmd(),
 		RuleFlushCmd(),
 		RuleListCmd(),
+		RuleRefreshCmd(),
 	)
 	return &ruleCmd
 }
@@ -212,4 +214,51 @@ func RuleListCmd() *cobra.Command {
 	}
 
 	return &ruleListCmd
+}
+
+func RuleRefreshCmd() *cobra.Command {
+	ruleRefresh := cobra.Command{
+		Use:     "refresh-dns",
+		Short:   "Refresh dns mappings for stored domain rules.",
+		Aliases: []string{"r"},
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("Refreshing Domains..................")
+			dbCon, err := db.NewConn()
+			if err != nil {
+				return err
+			}
+
+			htbCtx, err := htb.NewHTBCtx()
+			if err != nil {
+				return err
+			}
+			if debug {
+				logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+					Level: slog.LevelDebug,
+				}))
+				htbCtx.WithLogger(logger)
+			}
+
+			err = htbCtx.InitHTBFilter(false)
+			if err != nil {
+				if errors.Is(err, nft.ErrTableNotFound) {
+					return fmt.Errorf(" No tc rules added yet by qosm ")
+				}
+				return err
+			}
+
+			err = dns.RefreshAllDomains(dbCon, htbCtx, htbCtx.Logger)
+			if err != nil {
+				if errors.Is(err, dns.ErrNoDomains) {
+					return nil
+				}
+				return err
+			}
+			fmt.Println("Refresh Successfully Completed")
+			return nil
+		},
+	}
+
+	return &ruleRefresh
 }

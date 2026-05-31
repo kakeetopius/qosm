@@ -222,6 +222,15 @@ func DeleteDomainRuleByName(db *sql.DB, name string, priority string) error {
 	return err
 }
 
+func DeleteDomainIPsByDomainID(db *sql.DB, id int) error {
+	_, err := db.Exec(`
+		DELETE FROM domainips
+		WHERE domain_id = ?
+	`, id)
+
+	return err
+}
+
 func FlushDomainRules(db *sql.DB) error {
 	_, err := db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {

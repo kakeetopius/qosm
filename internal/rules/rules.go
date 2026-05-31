@@ -43,10 +43,10 @@ func AddDomainRule(dbCon *sql.DB, htbCtx *htb.HTBCtx, domain string, priority st
 		return Rule{}, fmt.Errorf("%v seems to be an IP address not a domain", domain)
 	}
 
-	util.Debug(logger, "resolving_domain", "domain", domain)
+	util.Debug(logger, "resolving_domain", "domain_name", domain)
 	ips, err := net.LookupIP(domain)
 	if err != nil {
-		util.Error(logger, "resolve_error", "domain", domain, "error", err.Error())
+		util.Error(logger, "resolve_error", "domain_name", domain, "error", err.Error())
 		return Rule{}, err
 	}
 
