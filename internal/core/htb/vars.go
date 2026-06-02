@@ -96,25 +96,12 @@ func calcBurst(megabitsPerSecond uint32) uint32 {
 	// convert Mb/s to bytes/s
 	rateBytesPerSec := bytesPerSecFromMBsPerSec(megabitsPerSecond)
 
-	const (
-		mtu = 1500
-	)
+	// allow a burst worth of 5ms at the given rate
+	burstBytes := rateBytesPerSec * 5 / 1000
 
-	// GetTickInUSec returns how many kernel ticks are in one microsecond.
-	// The conversion below determines how many ticks are in one second which is the kernel frequency(hz)
-	hz := uint64(1_000_000.0 / core.GetTickInUSec())
+	// how much time in ticks does it take to transmit the burstBytes at the given rate
+	xmitTime := core.XmitTime(uint64(rateBytesPerSec), burstBytes)
 
-	// burstBytes is how many bytes can accumulate for each time interval when the schedular is asleep.(schedular wakeups hz times per second)
-	// duration of time the schedular is asleep is 1 / freq so numBytes = speed x time = speed x (1/freq)
-	burstBytes := (uint64(rateBytesPerSec) / hz) + mtu
-
-	// how much time in microseconds does it take to transmit the burstBytes at the given rate
-	xmitTime := core.XmitTime(uint64(rateBytesPerSec), uint32(burstBytes))
-
-	// convert time to kernel ticks
-	ticks := core.Time2Tick(xmitTime)
-
-	// we return ticks as the burst because the kerenl doesnt store burst as bytesPerSecond rather as
-	// transmission duration ie how long can this class transmit at full rate before bucket empties.
-	return ticks
+	// we return ticks burst as duration not size. That is what tc wants.
+	return xmitTime
 }

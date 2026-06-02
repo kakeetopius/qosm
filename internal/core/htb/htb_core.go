@@ -160,8 +160,9 @@ func (c *HTBCtx) addRootQdisc(iface *net.Interface) (*tc.Object, error) {
 			Kind: "htb",
 			Htb: &tc.Htb{
 				Init: &tc.HtbGlob{
-					Version: 0x3,
-					Defcls:  rootQdisc.DefaultClass,
+					Version:      0x3,
+					Defcls:       rootQdisc.DefaultClass,
+					Rate2Quantum: 100,
 				},
 			},
 		},
