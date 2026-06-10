@@ -35,10 +35,6 @@ func FlushQdiscFromIface(tcnl *tc.Tc, ifIndex int) error {
 	return deleteQdisc(tcnl, root)
 }
 
-func (c *HTBCtx) Close() error {
-	return c.Conn.Close()
-}
-
 func HasHTBQdisc(iface *net.Interface) (bool, error) {
 	tcnl, err := tc.Open(&tc.Config{})
 	if err != nil {

@@ -2,11 +2,9 @@ package htb
 
 import (
 	"errors"
-	"log/slog"
 
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
-	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/prio"
 )
 
@@ -28,14 +26,6 @@ var (
 	HTBLOWCLASSPRIO     = 4
 )
 
-type HTBCtx struct {
-	Conn      *tc.Tc
-	HTBIfaces map[int]HTBIface
-	NFTFilter *nft.NFT
-
-	Logger *slog.Logger
-}
-
 type HTBIface struct {
 	Root         *tc.Object
 	ParentClass  *tc.Object
@@ -45,6 +35,10 @@ type HTBIface struct {
 
 	HighClassFilter *tc.Object
 	LowClassFilter  *tc.Object
+}
+
+type HTBIfaceStats struct {
+	Index int
 }
 
 type HTBQdisc struct {
