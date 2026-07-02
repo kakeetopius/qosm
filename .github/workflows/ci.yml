@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify go modules
+        run: go mod verify
+
+      - name: Check go.mod/go.sum tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - name: Check formatting (gofmt)
+        run: |
+          fmt_out="$(gofmt -l .)"
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  build-package:
+    name: Build release binary (nfpm dry-run)
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binary
+        run: go build -o dist/qos-manager .
+
+      - name: Install nfpm
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
+      - name: Validate nfpm.yaml package config
+        run: nfpm package --config nfpm.yaml --packager deb --target dist/
+        continue-on-error: true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qos-manager-binary
+          path: dist/qos-manager
+          retention-days: 7
