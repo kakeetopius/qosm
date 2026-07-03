@@ -56,6 +56,7 @@ func SetUp(db *sql.DB) error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		if_index INTEGER NOT NULL UNIQUE,
 		name TEXT NOT NULL UNIQUE,
+		rate INTEGER NOT NULL,
 		enabled BOOLEAN NOT NULL
 	);
 

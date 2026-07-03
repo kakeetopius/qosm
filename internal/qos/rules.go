@@ -21,16 +21,16 @@ type Rule struct {
 	CreatedAt time.Time
 }
 
-func (m *QoSManager) AddDomainRule(dbCon *sql.DB, domain string, priority string) (rule Rule, err error) {
+func (m *QoSManager) AddDomainRule(domain string, priority string) (rule Rule, err error) {
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbCon, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleSuccessLog(dbCon, domain, priority)
+			addRuleSuccessLog(m.DB, domain, priority)
 		}
 	}()
 
-	exists, err := db.CheckDomainRuleExists(dbCon, domain)
+	exists, err := db.CheckDomainRuleExists(m.DB, domain)
 	if err != nil {
 		return rule, err
 	}
@@ -50,7 +50,7 @@ func (m *QoSManager) AddDomainRule(dbCon *sql.DB, domain string, priority string
 		return Rule{}, err
 	}
 
-	db.AddLog(dbCon, db.Log{
+	db.AddLog(m.DB, db.Log{
 		EventType:   "DNS",
 		Description: "Resolved domain " + domain + " to " + ipSliceToString(ips),
 	})
@@ -64,12 +64,12 @@ func (m *QoSManager) AddDomainRule(dbCon *sql.DB, domain string, priority string
 		return Rule{}, err
 	}
 
-	err = db.AddDomainToPriority(dbCon, domain, priority, addrs)
+	err = db.AddDomainToPriority(m.DB, domain, priority, addrs)
 	if err != nil {
 		return rule, err
 	}
 
-	domainRule, err := db.GetDomainRuleByName(dbCon, domain)
+	domainRule, err := db.GetDomainRuleByName(m.DB, domain)
 	if err != nil {
 		return rule, err
 	}
@@ -83,12 +83,12 @@ func (m *QoSManager) AddDomainRule(dbCon *sql.DB, domain string, priority string
 	}, nil
 }
 
-func (m *QoSManager) AddIPRule(dbCon *sql.DB, ip string, priority string) (rule Rule, err error) {
+func (m *QoSManager) AddIPRule(ip string, priority string) (rule Rule, err error) {
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbCon, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleSuccessLog(dbCon, ip, priority)
+			addRuleSuccessLog(m.DB, ip, priority)
 		}
 	}()
 
@@ -97,7 +97,7 @@ func (m *QoSManager) AddIPRule(dbCon *sql.DB, ip string, priority string) (rule 
 		return Rule{}, fmt.Errorf("invalid IP address: %v", ip)
 	}
 
-	exists, err := db.CheckIPRuleExists(dbCon, addrs[0].String())
+	exists, err := db.CheckIPRuleExists(m.DB, addrs[0].String())
 	if err != nil {
 		return rule, err
 	}
@@ -113,12 +113,12 @@ func (m *QoSManager) AddIPRule(dbCon *sql.DB, ip string, priority string) (rule 
 	}
 
 	ipString := addrs[0].String()
-	err = db.AddIPToPriority(dbCon, ipString, priority)
+	err = db.AddIPToPriority(m.DB, ipString, priority)
 	if err != nil {
 		return rule, err
 	}
 
-	ipRule, err := db.GetIPRuleByName(dbCon, ipString)
+	ipRule, err := db.GetIPRuleByName(m.DB, ipString)
 	if err != nil {
 		return rule, err
 	}
@@ -132,8 +132,8 @@ func (m *QoSManager) AddIPRule(dbCon *sql.DB, ip string, priority string) (rule 
 	}, nil
 }
 
-func (m *QoSManager) InitSavedRules(dbCon *sql.DB) error {
-	ipRules, err := db.GetAllIPRules(dbCon)
+func (m *QoSManager) InitSavedRules() error {
+	ipRules, err := db.GetAllIPRules(m.DB)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (m *QoSManager) InitSavedRules(dbCon *sql.DB) error {
 		}
 	}
 
-	domainRules, err := db.GetAllDomainRules(dbCon)
+	domainRules, err := db.GetAllDomainRules(m.DB)
 	if err != nil {
 		return err
 	}
@@ -168,8 +168,8 @@ func (m *QoSManager) InitSavedRules(dbCon *sql.DB) error {
 	return nil
 }
 
-func (m *QoSManager) DeleteDomainRuleByID(dbConn *sql.DB, domainRuleID int) (err error) {
-	domainRule, err := db.GetDomainRuleByID(dbConn, domainRuleID)
+func (m *QoSManager) DeleteDomainRuleByID(domainRuleID int) (err error) {
+	domainRule, err := db.GetDomainRuleByID(m.DB, domainRuleID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("no rules to delete for domain with ID %v", domainRuleID)
@@ -179,13 +179,13 @@ func (m *QoSManager) DeleteDomainRuleByID(dbConn *sql.DB, domainRuleID int) (err
 
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbConn, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(dbConn, domainRule.DomainName, domainRule.Priority)
+			addRuleDeletedLog(m.DB, domainRule.DomainName, domainRule.Priority)
 		}
 	}()
 
-	err = db.DeleteDomainRuleByID(dbConn, domainRuleID, domainRule.Priority)
+	err = db.DeleteDomainRuleByID(m.DB, domainRuleID, domainRule.Priority)
 	if err != nil {
 		return err
 	}
@@ -193,8 +193,8 @@ func (m *QoSManager) DeleteDomainRuleByID(dbConn *sql.DB, domainRuleID int) (err
 	return m.deleteDomainAddrs(domainRule)
 }
 
-func (m *QoSManager) DeleteDomainRuleByName(dbConn *sql.DB, name string) error {
-	domainRule, err := db.GetDomainRuleByName(dbConn, name)
+func (m *QoSManager) DeleteDomainRuleByName(name string) error {
+	domainRule, err := db.GetDomainRuleByName(m.DB, name)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("no rules to delete for domain %v", name)
@@ -204,13 +204,13 @@ func (m *QoSManager) DeleteDomainRuleByName(dbConn *sql.DB, name string) error {
 
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbConn, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(dbConn, domainRule.DomainName, domainRule.Priority)
+			addRuleDeletedLog(m.DB, domainRule.DomainName, domainRule.Priority)
 		}
 	}()
 
-	err = db.DeleteDomainRuleByName(dbConn, name, domainRule.Priority)
+	err = db.DeleteDomainRuleByName(m.DB, name, domainRule.Priority)
 	if err != nil {
 		return err
 	}
@@ -218,8 +218,8 @@ func (m *QoSManager) DeleteDomainRuleByName(dbConn *sql.DB, name string) error {
 	return m.deleteDomainAddrs(domainRule)
 }
 
-func (m *QoSManager) DeleteIPRuleByID(dbConn *sql.DB, ipRuleID int) error {
-	ipRule, err := db.GetIPRuleByID(dbConn, ipRuleID)
+func (m *QoSManager) DeleteIPRuleByID(ipRuleID int) error {
+	ipRule, err := db.GetIPRuleByID(m.DB, ipRuleID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("no rules to delete for IP rule with ID %v", ipRuleID)
@@ -229,13 +229,13 @@ func (m *QoSManager) DeleteIPRuleByID(dbConn *sql.DB, ipRuleID int) error {
 
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbConn, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(dbConn, ipRule.IP, ipRule.Priority)
+			addRuleDeletedLog(m.DB, ipRule.IP, ipRule.Priority)
 		}
 	}()
 
-	err = db.DeleteIPRuleByID(dbConn, ipRuleID, ipRule.Priority)
+	err = db.DeleteIPRuleByID(m.DB, ipRuleID, ipRule.Priority)
 	if err != nil {
 		return err
 	}
@@ -248,8 +248,8 @@ func (m *QoSManager) DeleteIPRuleByID(dbConn *sql.DB, ipRuleID int) error {
 	return m.Classifier.DeleteTargetsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
 }
 
-func (m *QoSManager) DeleteIPRuleByName(dbConn *sql.DB, ipRuleName string) error {
-	ipRule, err := db.GetIPRuleByName(dbConn, ipRuleName)
+func (m *QoSManager) DeleteIPRuleByName(ipRuleName string) error {
+	ipRule, err := db.GetIPRuleByName(m.DB, ipRuleName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("no rules to delete for ip %v", ipRuleName)
@@ -259,13 +259,13 @@ func (m *QoSManager) DeleteIPRuleByName(dbConn *sql.DB, ipRuleName string) error
 
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbConn, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(dbConn, ipRule.IP, ipRule.Priority)
+			addRuleDeletedLog(m.DB, ipRule.IP, ipRule.Priority)
 		}
 	}()
 
-	err = db.DeleteIPRuleByName(dbConn, ipRuleName, ipRule.Priority)
+	err = db.DeleteIPRuleByName(m.DB, ipRuleName, ipRule.Priority)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func (m *QoSManager) DeleteIPRuleByName(dbConn *sql.DB, ipRuleName string) error
 	return m.Classifier.DeleteTargetsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
 }
 
-func (m *QoSManager) DeleteAllRules(dbConn *sql.DB) error {
+func (m *QoSManager) DeleteAllRules() error {
 	var err error
 	if m.Classifier != nil {
 		err = m.Classifier.DeleteTable()
@@ -291,12 +291,12 @@ func (m *QoSManager) DeleteAllRules(dbConn *sql.DB) error {
 		}
 	}
 
-	err = db.FlushDomainRules(dbConn)
+	err = db.FlushDomainRules(m.DB)
 	if err != nil {
 		return err
 	}
 
-	err = db.FlushIPRules(dbConn)
+	err = db.FlushIPRules(m.DB)
 	if err != nil {
 		return err
 	}
@@ -304,12 +304,12 @@ func (m *QoSManager) DeleteAllRules(dbConn *sql.DB) error {
 	return nil
 }
 
-func (m *QoSManager) GetAllRules(dbCon *sql.DB) ([]Rule, error) {
-	ipRules, err := db.GetAllIPRules(dbCon)
+func (m *QoSManager) GetAllRules() ([]Rule, error) {
+	ipRules, err := db.GetAllIPRules(m.DB)
 	if err != nil {
 		return nil, err
 	}
-	domainRules, err := db.GetAllDomainRules(dbCon)
+	domainRules, err := db.GetAllDomainRules(m.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -317,12 +317,12 @@ func (m *QoSManager) GetAllRules(dbCon *sql.DB) ([]Rule, error) {
 	return joinIPAndDomainRules(ipRules, domainRules), nil
 }
 
-func (m *QoSManager) GetHighPriority(dbCon *sql.DB) ([]Rule, error) {
-	highPrioIPRules, err := db.GetHighPrioIPs(dbCon)
+func (m *QoSManager) GetHighPriority() ([]Rule, error) {
+	highPrioIPRules, err := db.GetHighPrioIPs(m.DB)
 	if err != nil {
 		return nil, err
 	}
-	highPrioDomainRules, err := db.GetHighPrioDomains(dbCon)
+	highPrioDomainRules, err := db.GetHighPrioDomains(m.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -330,12 +330,12 @@ func (m *QoSManager) GetHighPriority(dbCon *sql.DB) ([]Rule, error) {
 	return joinIPAndDomainRules(highPrioIPRules, highPrioDomainRules), nil
 }
 
-func (m *QoSManager) GetLowPriority(dbCon *sql.DB) ([]Rule, error) {
-	lowPrioIPRules, err := db.GetLowPrioIPs(dbCon)
+func (m *QoSManager) GetLowPriority() ([]Rule, error) {
+	lowPrioIPRules, err := db.GetLowPrioIPs(m.DB)
 	if err != nil {
 		return nil, err
 	}
-	lowPrioDomainRules, err := db.GetLowPrioDomains(dbCon)
+	lowPrioDomainRules, err := db.GetLowPrioDomains(m.DB)
 	if err != nil {
 		return nil, err
 	}

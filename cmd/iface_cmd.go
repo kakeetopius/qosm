@@ -42,7 +42,7 @@ func IfaceEnableCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManager, err := qos.NewManager()
+			qosManager, err := qos.NewManager(dbConn)
 			if err != nil {
 				return err
 			}
@@ -61,7 +61,7 @@ func IfaceEnableCmd() *cobra.Command {
 			}
 
 			for _, iface := range args {
-				err = qosManager.EnableTcOnInterface(iface, dbConn)
+				err = qosManager.EnableTcOnInterface(iface, 1000)
 				if err != nil {
 					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}
@@ -88,7 +88,7 @@ func IfaceDisableCmd() *cobra.Command {
 			}
 			defer dbCon.Close()
 
-			qosManager, err := qos.NewManager()
+			qosManager, err := qos.NewManager(dbCon)
 			if err != nil {
 				return err
 			}
@@ -109,7 +109,7 @@ func IfaceDisableCmd() *cobra.Command {
 			}
 
 			for _, iface := range args {
-				err = qosManager.DisableTcOnInterface(iface, dbCon)
+				err = qosManager.DisableTcOnInterface(iface)
 				if err != nil {
 					return fmt.Errorf(" Interface %v -> %w", iface, err)
 				}
@@ -130,7 +130,7 @@ func IfaceStats() *cobra.Command {
 		Aliases: []string{"s"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			qosManager, err := qos.NewManager()
+			qosManager, err := qos.NewManager(nil)
 			if err != nil {
 				return err
 			}

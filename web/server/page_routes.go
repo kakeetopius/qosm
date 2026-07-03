@@ -71,7 +71,7 @@ func (app *Server) DashboardPage(c *gin.Context) {
 	session := sessions.Default(c)
 	enabled := app.QoSManager.EnabledInterfaces()
 
-	allRules, err := app.QoSManager.GetAllRules(app.DB)
+	allRules, err := app.QoSManager.GetAllRules()
 	if err != nil {
 		c.Error(err)
 		return
@@ -124,7 +124,7 @@ func dashBoardStats(rules []qos.Rule) DashBoardStats {
 
 func (app *Server) RulesPage(c *gin.Context) {
 	session := sessions.Default(c)
-	rules, err := app.QoSManager.GetAllRules(app.DB)
+	rules, err := app.QoSManager.GetAllRules()
 	if err != nil {
 		c.Error(err)
 		return

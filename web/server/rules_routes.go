@@ -27,9 +27,9 @@ func (app *Server) PostRules(c *gin.Context) {
 	var rule qos.Rule
 	switch form.RuleType {
 	case "ip":
-		rule, err = app.QoSManager.AddIPRule(app.DB, form.Target, form.Priority)
+		rule, err = app.QoSManager.AddIPRule(form.Target, form.Priority)
 	case "domain":
-		rule, err = app.QoSManager.AddDomainRule(app.DB, form.Target, form.Priority)
+		rule, err = app.QoSManager.AddDomainRule(form.Target, form.Priority)
 	default:
 		err = fmt.Errorf("unknown rule type: %s", form.RuleType)
 	}
@@ -52,9 +52,9 @@ func (app *Server) DeleteRule(c *gin.Context) {
 
 	switch ruleType {
 	case "domain":
-		err = app.QoSManager.DeleteDomainRuleByID(app.DB, ruleID)
+		err = app.QoSManager.DeleteDomainRuleByID(ruleID)
 	case "ip":
-		err = app.QoSManager.DeleteIPRuleByID(app.DB, ruleID)
+		err = app.QoSManager.DeleteIPRuleByID(ruleID)
 	default:
 		err = fmt.Errorf("unknown rule type: %s", ruleType)
 	}

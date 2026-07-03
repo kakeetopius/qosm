@@ -29,7 +29,7 @@ type Server struct {
 }
 
 func (app *Server) Init() error {
-	qosManager, err := qos.NewManager()
+	qosManager, err := qos.NewManager(app.DB)
 	if err != nil {
 		return err
 	}
@@ -41,12 +41,12 @@ func (app *Server) Init() error {
 	}
 	app.QoSManager = qosManager
 
-	err = app.QoSManager.InitSavedRules(app.DB)
+	err = app.QoSManager.InitSavedRules()
 	if err != nil {
 		return err
 	}
 
-	err = app.QoSManager.InitSavedInterfaceSettings(app.DB)
+	err = app.QoSManager.InitSavedInterfaceSettings()
 	if err != nil {
 		return err
 	}

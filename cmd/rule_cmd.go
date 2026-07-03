@@ -39,7 +39,13 @@ func RuleAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			qosManager, err := qos.NewManager()
+			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
+			if err != nil {
+				return err
+			}
+			defer dbConn.Close()
+
+			qosManager, err := qos.NewManager(dbConn)
 			if err != nil {
 				return err
 			}
@@ -57,17 +63,11 @@ func RuleAddCmd() *cobra.Command {
 				return err
 			}
 
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
-
 			switch ruleType {
 			case "ip":
-				_, err = qosManager.AddIPRule(dbConn, args[0], priority)
+				_, err = qosManager.AddIPRule(args[0], priority)
 			case "domain":
-				_, err = qosManager.AddDomainRule(dbConn, args[0], priority)
+				_, err = qosManager.AddDomainRule(args[0], priority)
 			default:
 				err = fmt.Errorf("unknown rule type: %s", ruleType)
 			}
@@ -95,7 +95,13 @@ func RuleDeleteCmd() *cobra.Command {
 		Aliases: []string{"d"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			qosManager, err := qos.NewManager()
+			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
+			if err != nil {
+				return err
+			}
+			defer dbConn.Close()
+
+			qosManager, err := qos.NewManager(dbConn)
 			if err != nil {
 				return err
 			}
@@ -116,17 +122,11 @@ func RuleDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
-			if err != nil {
-				return err
-			}
-			defer dbConn.Close()
-
 			switch ruleType {
 			case "domain":
-				err = qosManager.DeleteDomainRuleByName(dbConn, args[0])
+				err = qosManager.DeleteDomainRuleByName(args[0])
 			case "ip":
-				err = qosManager.DeleteIPRuleByName(dbConn, args[0])
+				err = qosManager.DeleteIPRuleByName(args[0])
 			default:
 				err = fmt.Errorf("unknown rule type: %s", ruleType)
 			}
@@ -151,19 +151,19 @@ func RuleFlushCmd() *cobra.Command {
 		Short:   "Flush all QoS rules.",
 		Aliases: []string{"f"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			qosManager, err := qos.NewManager()
-			if err != nil {
-				return err
-			}
-			defer qosManager.Close()
-
 			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
 			if err != nil {
 				return err
 			}
 			defer dbConn.Close()
 
-			err = qosManager.DeleteAllRules(dbConn)
+			qosManager, err := qos.NewManager(dbConn)
+			if err != nil {
+				return err
+			}
+			defer qosManager.Close()
+
+			err = qosManager.DeleteAllRules()
 			if err != nil {
 				return err
 			}
@@ -187,17 +187,17 @@ func RuleListCmd() *cobra.Command {
 			}
 			defer dbConn.Close()
 
-			qosManger, err := qos.NewManager()
+			qosManger, err := qos.NewManager(dbConn)
 			if err != nil {
 				return err
 			}
 			defer qosManger.Close()
 
-			highPrio, err := qosManger.GetHighPriority(dbConn)
+			highPrio, err := qosManger.GetHighPriority()
 			if err != nil {
 				return err
 			}
-			lowPrio, err := qosManger.GetLowPriority(dbConn)
+			lowPrio, err := qosManger.GetLowPriority()
 			if err != nil {
 				return err
 			}
@@ -248,7 +248,7 @@ func RuleRefreshCmd() *cobra.Command {
 			}
 			defer dbCon.Close()
 
-			qosManager, err := qos.NewManager()
+			qosManager, err := qos.NewManager(dbCon)
 			if err != nil {
 				return err
 			}
@@ -269,7 +269,7 @@ func RuleRefreshCmd() *cobra.Command {
 				return err
 			}
 
-			err = qosManager.RefreshAllDomains(dbCon)
+			err = qosManager.RefreshAllDomains()
 			if err != nil {
 				return err
 			}

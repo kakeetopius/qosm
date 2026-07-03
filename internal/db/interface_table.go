@@ -11,6 +11,7 @@ var ErrNotExists = errors.New("requested object does not exist in the database")
 type DBInterface struct {
 	IfaceIndex int
 	Name       string
+	Rate       uint32
 	Enabled    bool
 }
 
@@ -20,12 +21,14 @@ func AddInterface(db *sql.DB, iface DBInterface) error {
 		INSERT OR REPLACE INTO interfaces (
 			name,
 			if_index,
+			rate,
 			enabled
 		)
-		VALUES (?, ?, ?)
+		VALUES (?, ?, ?, ?)
 	`,
 		iface.Name,
 		iface.IfaceIndex,
+		iface.Rate,
 		iface.Enabled,
 	)
 
@@ -64,7 +67,7 @@ func CheckInterfaceExistsByIndex(db *sql.DB, index int) (bool, error) {
 
 func GetAllInterfaces(db *sql.DB) ([]DBInterface, error) {
 	rows, err := db.Query(`
-		SELECT if_index, name, enabled
+		SELECT if_index, name, rate,enabled
 		FROM interfaces
 	`)
 	if err != nil {
@@ -77,7 +80,7 @@ func GetAllInterfaces(db *sql.DB) ([]DBInterface, error) {
 
 	for rows.Next() {
 		var iface DBInterface
-		err = rows.Scan(&iface.IfaceIndex, &iface.Name, &enabled)
+		err = rows.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +98,7 @@ func GetAllInterfaces(db *sql.DB) ([]DBInterface, error) {
 
 func GetEnabledInterfaces(db *sql.DB) ([]DBInterface, error) {
 	rows, err := db.Query(`
-		SELECT if_index, name, enabled
+		SELECT if_index, name, rate, enabled
 		FROM interfaces
 		WHERE enabled = 1
 	`)
@@ -109,7 +112,7 @@ func GetEnabledInterfaces(db *sql.DB) ([]DBInterface, error) {
 
 	for rows.Next() {
 		var iface DBInterface
-		err = rows.Scan(&iface.IfaceIndex, &iface.Name, &enabled)
+		err = rows.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +130,7 @@ func GetEnabledInterfaces(db *sql.DB) ([]DBInterface, error) {
 
 func InterfaceByName(db *sql.DB, name string) (DBInterface, error) {
 	row := db.QueryRow(`
-		SELECT if_index, name, enabled 
+		SELECT if_index, name, rate, enabled 
 		FROM interfaces
 		WHERE name = ?
 	`, name)
@@ -135,7 +138,7 @@ func InterfaceByName(db *sql.DB, name string) (DBInterface, error) {
 	var iface DBInterface
 	var enabled int
 
-	err := row.Scan(&iface.IfaceIndex, &iface.Name, &enabled)
+	err := row.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
 	if err != nil {
 		return DBInterface{}, err
 	}
@@ -146,7 +149,7 @@ func InterfaceByName(db *sql.DB, name string) (DBInterface, error) {
 
 func InterfaceByIndex(db *sql.DB, index int) (DBInterface, error) {
 	row := db.QueryRow(`
-		SELECT if_index, name, enabled
+		SELECT if_index, name, rate, enabled
 		FROM interfaces
 		WHERE if_index = ?
 	`, index)
@@ -154,7 +157,7 @@ func InterfaceByIndex(db *sql.DB, index int) (DBInterface, error) {
 	var iface DBInterface
 	var enabled int
 
-	err := row.Scan(&iface.IfaceIndex, &iface.Name, &enabled)
+	err := row.Scan(&iface.IfaceIndex, &iface.Name, &iface.Rate, &enabled)
 	if err != nil {
 		return DBInterface{}, err
 	}
@@ -190,7 +193,7 @@ func EnableInterface(db *sql.DB, name string) error {
 }
 
 func InterfaceIsEnabled(db *sql.DB, name string) (bool, error) {
-	enabled, err := getField(db, name, "enabled")
+	enabled, err := GetInterfaceField(db, name, "enabled")
 	if err != nil {
 		if errors.Is(err, ErrNotExists) {
 			return false, nil
@@ -201,11 +204,12 @@ func InterfaceIsEnabled(db *sql.DB, name string) (bool, error) {
 	return enabled.(int64) == 1, nil
 }
 
-func getField(db *sql.DB, ifaceName string, field string) (any, error) {
+func GetInterfaceField(db *sql.DB, ifaceName string, field string) (any, error) {
 	allowed := map[string]struct{}{
 		"if_index": {},
 		"name":     {},
 		"enabled":  {},
+		"rate":     {},
 	}
 	if _, ok := allowed[field]; !ok {
 		return nil, fmt.Errorf("db: unknown interfaces table field: %v", field)
@@ -238,6 +242,7 @@ func updateField(db *sql.DB, ifaceName string, field string, value any) error {
 		"if_index": {},
 		"name":     {},
 		"enabled":  {},
+		"rate":     {},
 	}
 	if _, ok := allowed[field]; !ok {
 		return fmt.Errorf("db: unknown interfaces table field: %v", field)

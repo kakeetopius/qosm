@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/db"
@@ -47,22 +48,43 @@ func (app *Server) GetInterfaceSettingsPopUp(c *gin.Context) {
 func (app *Server) PostInterfaceSettings(c *gin.Context) {
 	ifaceName := c.Param("ifaceName")
 	enabled := c.PostForm("qos_enabled") != ""
+	rateStr := c.PostForm("rate")
+	autorate := c.PostForm("auto_rate") != ""
 
 	var err error
-	iface, found := app.QoSManager.Ifaces[ifaceName]
-	if !found {
-		c.Error(fmt.Errorf("unknown interface: %s", ifaceName))
+	defer func() {
+		if err != nil {
+			c.Error(err)
+		}
+	}()
+
+	if rateStr == "" {
+		err = fmt.Errorf("please provide a rate for the interface")
 		return
 	}
 
+	rate, err := strconv.Atoi(rateStr)
+	if err != nil {
+		return
+	}
+
+	iface, found := app.QoSManager.Ifaces[ifaceName]
+	if !found {
+		err = fmt.Errorf("unknown interface: %s", ifaceName)
+		return
+	}
+
+	if autorate {
+		rate = int(iface.LinkSpeed)
+	}
+
 	if enabled && !iface.QoSEnabled {
-		err = app.QoSManager.EnableTcOnInterface(iface.Name, app.DB)
+		err = app.QoSManager.EnableTcOnInterface(ifaceName, uint32(rate))
 	} else if !enabled && iface.QoSEnabled {
-		err = app.QoSManager.DisableTcOnInterface(iface.Name, app.DB)
+		err = app.QoSManager.DisableTcOnInterface(ifaceName)
 	}
 
 	if err != nil {
-		c.Error(err)
 		return
 	}
 

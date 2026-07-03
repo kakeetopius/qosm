@@ -150,12 +150,15 @@ func lookupQosmChain(conn *nftables.Conn, table *nftables.Table, chainName strin
 // The chain is configured as the specified hook  with standard filter priority.
 func addNewQosmChain(conn *nftables.Conn, table *nftables.Table, chainName string, hook *nftables.ChainHook, logger *slog.Logger) (qosmChain, error) {
 	util.Debug(logger, "nft: creating chain", "name", chainName)
+	chainPolicy := nftables.ChainPolicyAccept
+
 	chain := conn.AddChain(&nftables.Chain{
 		Name:     chainName,
 		Hooknum:  hook,
 		Type:     nftables.ChainTypeFilter,
 		Table:    table,
 		Priority: nftables.ChainPriorityFilter,
+		Policy:   &chainPolicy,
 	})
 
 	err := conn.Flush()
@@ -291,6 +294,11 @@ func addIPRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger) (*nf
 
 			// Add a counter to the rule for the matched packets.
 			&expr.Counter{},
+
+			// Stop proceesing rules for this chain
+			&expr.Verdict{
+				Kind: expr.VerdictReturn,
+			},
 		},
 	})
 

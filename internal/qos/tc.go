@@ -1,7 +1,6 @@
 package qos
 
 import (
-	"database/sql"
 	"fmt"
 	"net"
 
@@ -9,7 +8,7 @@ import (
 	"github.com/kakeetopius/qosm/internal/db"
 )
 
-func (m *QoSManager) EnableTcOnInterface(ifaceName string, dbConn *sql.DB) (err error) {
+func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err error) {
 	if m.Ifaces == nil {
 		m.Ifaces = make(map[string]Interface)
 	}
@@ -18,11 +17,15 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, dbConn *sql.DB) (err 
 		return fmt.Errorf("nft classifier not intialised")
 	}
 
+	if rate == 0 {
+		return fmt.Errorf("invalid rate: %v", rate)
+	}
+
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbConn, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addTCEnabledLog(dbConn, ifaceName)
+			addTCEnabledLog(m.DB, ifaceName)
 		}
 	}()
 
@@ -34,11 +37,8 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, dbConn *sql.DB) (err 
 		}
 		iface.Interface = *netIface
 	}
-	if iface.QoSEnabled {
-		return nil
-	}
 
-	htbIface, err := htb.InitHTBOnIface(m.TcConn, iface.Index, m.Logger)
+	htbObjs, err := htb.InitHTBOnIface(m.TcConn, iface.Index, m.Logger)
 	if err != nil {
 		return err
 	}
@@ -48,32 +48,34 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, dbConn *sql.DB) (err 
 		return err
 	}
 
-	err = db.AddInterface(dbConn, db.DBInterface{
+	err = db.AddInterface(m.DB, db.DBInterface{
 		Name:       iface.Name,
 		IfaceIndex: iface.Index,
 		Enabled:    true,
+		Rate:       rate,
 	})
 	if err != nil {
 		return err
 	}
 
-	iface.HTBObjects = htbIface
+	iface.HTBObjects = htbObjs
 	iface.QoSEnabled = true
+	iface.ShapingRate = rate
 	m.Ifaces[iface.Name] = iface
 
 	return nil
 }
 
-func (m *QoSManager) DisableTcOnInterface(ifaceName string, dbConn *sql.DB) (err error) {
+func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 	if m.Classifier == nil {
 		return fmt.Errorf("nft classifier not intialised")
 	}
 
 	defer func() {
 		if err != nil {
-			db.AddErrorLog(dbConn, err, "")
+			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addTCDisabledLog(dbConn, ifaceName)
+			addTCDisabledLog(m.DB, ifaceName)
 		}
 	}()
 
@@ -88,10 +90,6 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string, dbConn *sql.DB) (err
 		}
 	}
 
-	if !iface.QoSEnabled {
-		return nil
-	}
-
 	err = htb.FlushQdiscFromIface(m.TcConn, iface.Index)
 	if err != nil {
 		return err
@@ -104,7 +102,7 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string, dbConn *sql.DB) (err
 		}
 	}
 
-	err = db.DisableInterface(dbConn, iface.Name)
+	err = db.DisableInterface(m.DB, iface.Name)
 	if err != nil {
 		return err
 	}
@@ -115,17 +113,17 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string, dbConn *sql.DB) (err
 	return nil
 }
 
-func (m *QoSManager) InitSavedInterfaceSettings(dbConn *sql.DB) error {
+func (m *QoSManager) InitSavedInterfaceSettings() error {
 	if m.Classifier == nil {
 		return fmt.Errorf("nft filter not intialised")
 	}
-	enabledIfaces, err := db.GetEnabledInterfaces(dbConn)
+	enabledIfaces, err := db.GetEnabledInterfaces(m.DB)
 	if err != nil {
 		return err
 	}
 
 	for _, iface := range enabledIfaces {
-		err = m.EnableTcOnInterface(iface.Name, dbConn)
+		err = m.EnableTcOnInterface(iface.Name, iface.Rate)
 		if err != nil {
 			return err
 		}

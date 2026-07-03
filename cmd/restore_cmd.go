@@ -26,7 +26,13 @@ func RestoreCmd() *cobra.Command {
 }
 
 func runRestore() error {
-	qosManager, err := qos.NewManager()
+	dbConn, err := db.NewConn(appConfig.GetString("db.path"))
+	if err != nil {
+		return err
+	}
+	defer dbConn.Close()
+
+	qosManager, err := qos.NewManager(dbConn)
 	if err != nil {
 		return err
 	}
@@ -44,17 +50,12 @@ func runRestore() error {
 		return err
 	}
 
-	dbConn, err := db.NewConn(appConfig.GetString("db.path"))
+	err = qosManager.InitSavedRules()
 	if err != nil {
 		return err
 	}
 
-	err = qosManager.InitSavedRules(dbConn)
-	if err != nil {
-		return err
-	}
-
-	err = qosManager.InitSavedInterfaceSettings(dbConn)
+	err = qosManager.InitSavedInterfaceSettings()
 	if err != nil {
 		return err
 	}
