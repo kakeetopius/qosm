@@ -40,6 +40,16 @@ func SetUp(db *sql.DB) error {
 		last_resolved_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS servicerules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		protocol INTEGER NOT NULL,
+		port INTEGER NOT NULL,
+		priority INTEGER NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+		UNIQUE (protocol, port)
+	);
+
 	CREATE TABLE IF NOT EXISTS domainips (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		ip TEXT NOT NULL,

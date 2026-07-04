@@ -194,12 +194,12 @@ func (m *QoSManager) DeleteDomainRuleByID(domainRuleID int) (err error) {
 		}
 	}()
 
-	err = db.DeleteDomainRuleByID(m.DB, domainRuleID, domainRule.Priority)
+	err = m.deleteDomainAddrs(domainRule)
 	if err != nil {
 		return err
 	}
 
-	return m.deleteDomainAddrs(domainRule)
+	return db.DeleteDomainRuleByID(m.DB, domainRuleID, domainRule.Priority)
 }
 
 func (m *QoSManager) DeleteDomainRuleByName(name string) error {
@@ -219,12 +219,12 @@ func (m *QoSManager) DeleteDomainRuleByName(name string) error {
 		}
 	}()
 
-	err = db.DeleteDomainRuleByName(m.DB, name, domainRule.Priority)
+	err = m.deleteDomainAddrs(domainRule)
 	if err != nil {
 		return err
 	}
 
-	return m.deleteDomainAddrs(domainRule)
+	return db.DeleteDomainRuleByName(m.DB, name, domainRule.Priority)
 }
 
 func (m *QoSManager) DeleteIPRuleByID(ipRuleID int) error {

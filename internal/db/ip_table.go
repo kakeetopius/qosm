@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"net/netip"
 	"time"
 
 	"github.com/kakeetopius/qosm/internal/priority"
@@ -12,6 +13,15 @@ type IPRule struct {
 	IP        string
 	Priority  priority.Priority
 	CreatedAt time.Time
+}
+
+func (r IPRule) AsPrefix() (netip.Prefix, error) {
+	addr, err := netip.ParsePrefix(r.IP)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+
+	return addr, nil
 }
 
 func CheckIPRuleExists(db *sql.DB, ip string) (bool, error) {

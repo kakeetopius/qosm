@@ -20,10 +20,11 @@ func NetIPtoNetIPPRefix(ips []net.IP) []netip.Prefix {
 
 		var prefix netip.Prefix
 
-		if !addr.Is4() {
-			continue
+		bits := 32
+		if addr.Is6() {
+			bits = 128
 		}
-		prefix = netip.PrefixFrom(addr, 32)
+		prefix = netip.PrefixFrom(addr, bits)
 		addrs = append(addrs, prefix)
 	}
 

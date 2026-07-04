@@ -67,6 +67,7 @@ func addIfaceToIfaceSet(conn *nftables.Conn, ifaceSet *nftables.Set, ifaceNames 
 
 func addIPsToIPSet(conn *nftables.Conn, ip4Set *nftables.Set, ip6set *nftables.Set, ipRanges []netip.Prefix) error {
 	rangeElements := make([]nftables.SetElement, 2)
+	setToUse := ip4Set
 	for _, ipRange := range ipRanges {
 		networkAddr := ipRange.Masked().Addr()
 		if ipRange.Addr() != networkAddr {
@@ -77,9 +78,10 @@ func addIPsToIPSet(conn *nftables.Conn, ip4Set *nftables.Set, ip6set *nftables.S
 		rangeElements[0] = nftables.SetElement{Key: networkAddr.AsSlice()}
 		rangeElements[1] = nftables.SetElement{Key: broadcast.AsSlice(), IntervalEnd: true}
 
-		setToUse := ip4Set
 		if broadcast.Is6() {
 			setToUse = ip6set
+		} else {
+			setToUse = ip4Set
 		}
 
 		err := conn.SetAddElements(setToUse, rangeElements)
@@ -171,24 +173,24 @@ func getIfaceSetElements(conn *nftables.Conn, set *nftables.Set) ([]string, erro
 }
 
 func deleteIPsFromIPSet(conn *nftables.Conn, ip4Set *nftables.Set, ip6Set *nftables.Set, ipRanges []netip.Prefix) error {
-	toDelete := make([]nftables.SetElement, 0, len(ipRanges))
-
+	setToUse := ip4Set
+	toDelete := make([]nftables.SetElement, 2)
 	for _, ipRange := range ipRanges {
-		setToUse := ip4Set
 		if ipRange.Addr().Is6() {
 			setToUse = ip6Set
+		} else {
+			setToUse = ip4Set
 		}
 		start := ipRange.Addr()
 		end := ipIntervalEnd(ipRange)
 
-		toDelete = append(toDelete,
-			nftables.SetElement{
-				Key: start.AsSlice(),
-			},
-			nftables.SetElement{
-				Key:         end.AsSlice(),
-				IntervalEnd: true,
-			})
+		toDelete[0] = nftables.SetElement{
+			Key: start.AsSlice(),
+		}
+		toDelete[1] = nftables.SetElement{
+			Key:         end.AsSlice(),
+			IntervalEnd: true,
+		}
 		err := conn.SetDeleteElements(setToUse, toDelete)
 		if err != nil {
 			return err
