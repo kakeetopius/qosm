@@ -6,23 +6,13 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"time"
 
-	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
 	"github.com/kakeetopius/qosm/internal/priority"
 	"github.com/kakeetopius/qosm/internal/util"
 )
 
-type Rule struct {
-	ID        int
-	Target    string
-	Type      string
-	Priority  priority.Priority
-	CreatedAt time.Time
-}
-
-func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule, err error) {
+func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule HostRule, err error) {
 	defer func() {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
@@ -32,7 +22,7 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule,
 	}()
 	prio, err := priority.PriorityFromString(prioString)
 	if err != nil {
-		return Rule{}, err
+		return HostRule{}, err
 	}
 
 	exists, err := db.CheckDomainRuleExists(m.DB, domain)
@@ -45,14 +35,14 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule,
 
 	_, err = netip.ParseAddr(domain)
 	if err == nil {
-		return Rule{}, fmt.Errorf("%v seems to be an IP address not a domain", domain)
+		return HostRule{}, fmt.Errorf("%v seems to be an IP address not a domain", domain)
 	}
 
 	util.Debug(m.Logger, "resolving_domain", "domain_name", domain)
 	ips, err := net.LookupIP(domain)
 	if err != nil {
 		util.Debug(m.Logger, "resolve_error", "domain_name", domain, "error", err.Error())
-		return Rule{}, err
+		return HostRule{}, err
 	}
 
 	db.AddLog(m.DB, db.Log{
@@ -66,7 +56,7 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule,
 
 	err = m.Classifier.AddIPsToPriority(addrs, prio)
 	if err != nil {
-		return Rule{}, err
+		return HostRule{}, err
 	}
 
 	err = db.AddDomainToPriority(m.DB, domain, prio, addrs)
@@ -79,7 +69,7 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule,
 		return rule, err
 	}
 
-	return Rule{
+	return HostRule{
 		Type:      "domain",
 		Priority:  prio,
 		Target:    domainRule.DomainName,
@@ -88,7 +78,7 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule,
 	}, nil
 }
 
-func (m *QoSManager) AddIPRule(ip string, prioString string) (rule Rule, err error) {
+func (m *QoSManager) AddIPRule(ip string, prioString string) (rule HostRule, err error) {
 	defer func() {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
@@ -98,12 +88,12 @@ func (m *QoSManager) AddIPRule(ip string, prioString string) (rule Rule, err err
 	}()
 	prio, err := priority.PriorityFromString(prioString)
 	if err != nil {
-		return Rule{}, err
+		return HostRule{}, err
 	}
 
 	addrs, err := util.TargetsFromString(ip)
 	if err != nil {
-		return Rule{}, fmt.Errorf("invalid IP address: %v", ip)
+		return HostRule{}, fmt.Errorf("invalid IP address: %v", ip)
 	}
 
 	exists, err := db.CheckIPRuleExists(m.DB, addrs[0].String())
@@ -118,7 +108,7 @@ func (m *QoSManager) AddIPRule(ip string, prioString string) (rule Rule, err err
 
 	err = m.Classifier.AddIPsToPriority(addrs, prio)
 	if err != nil {
-		return Rule{}, err
+		return HostRule{}, err
 	}
 
 	ipString := addrs[0].String()
@@ -132,49 +122,13 @@ func (m *QoSManager) AddIPRule(ip string, prioString string) (rule Rule, err err
 		return rule, err
 	}
 
-	return Rule{
+	return HostRule{
 		Type:      "ip",
 		Priority:  prio,
 		Target:    ipRule.IP,
 		ID:        ipRule.ID,
 		CreatedAt: ipRule.CreatedAt,
 	}, nil
-}
-
-func (m *QoSManager) InitSavedRules() error {
-	ipRules, err := db.GetAllIPRules(m.DB)
-	if err != nil {
-		return err
-	}
-
-	for _, rule := range ipRules {
-		ip, ipErr := netip.ParsePrefix(rule.IP)
-		if ipErr != nil {
-			return ipErr
-		}
-		ipErr = m.Classifier.AddIPsToPriority([]netip.Prefix{ip}, rule.Priority)
-		if ipErr != nil {
-			return ipErr
-		}
-	}
-
-	domainRules, err := db.GetAllDomainRules(m.DB)
-	if err != nil {
-		return err
-	}
-
-	for _, rule := range domainRules {
-		ips, err := rule.IPsAsPrefix()
-		if err != nil {
-			return err
-		}
-		err = m.Classifier.AddIPsToPriority(ips, rule.Priority)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (m *QoSManager) DeleteDomainRuleByID(domainRuleID int) (err error) {
@@ -287,34 +241,7 @@ func (m *QoSManager) DeleteIPRuleByName(ipRuleName string) error {
 	return db.DeleteIPRuleByName(m.DB, ipRuleName, ipRule.Priority)
 }
 
-func (m *QoSManager) DeleteAllRules() error {
-	var err error
-	if m.Classifier != nil {
-		err = m.Classifier.DeleteTable()
-	} else {
-		err = nft.DeleteTable()
-	}
-
-	if err != nil {
-		if !errors.Is(err, nft.ErrTableNotFound) {
-			return err
-		}
-	}
-
-	err = db.FlushDomainRules(m.DB)
-	if err != nil {
-		return err
-	}
-
-	err = db.FlushIPRules(m.DB)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (m *QoSManager) GetAllRules() ([]Rule, error) {
+func (m *QoSManager) GetAllRules() ([]HostRule, error) {
 	ipRules, err := db.GetAllIPRules(m.DB)
 	if err != nil {
 		return nil, err
@@ -327,7 +254,7 @@ func (m *QoSManager) GetAllRules() ([]Rule, error) {
 	return joinIPAndDomainRules(ipRules, domainRules), nil
 }
 
-func (m *QoSManager) GetHighPriority() ([]Rule, error) {
+func (m *QoSManager) GetHighPriorityHostRules() ([]HostRule, error) {
 	highPrioIPRules, err := db.GetHighPrioIPs(m.DB)
 	if err != nil {
 		return nil, err
@@ -340,7 +267,7 @@ func (m *QoSManager) GetHighPriority() ([]Rule, error) {
 	return joinIPAndDomainRules(highPrioIPRules, highPrioDomainRules), nil
 }
 
-func (m *QoSManager) GetLowPriority() ([]Rule, error) {
+func (m *QoSManager) GetLowPriorityHostRules() ([]HostRule, error) {
 	lowPrioIPRules, err := db.GetLowPrioIPs(m.DB)
 	if err != nil {
 		return nil, err

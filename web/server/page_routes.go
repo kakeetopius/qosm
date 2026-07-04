@@ -77,7 +77,7 @@ func (app *Server) DashboardPage(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	slices.SortFunc(allRules, func(a, b qos.Rule) int {
+	slices.SortFunc(allRules, func(a, b qos.HostRule) int {
 		return -a.CreatedAt.Compare(b.CreatedAt)
 	})
 
@@ -99,7 +99,7 @@ func (app *Server) DashboardPage(c *gin.Context) {
 	})
 }
 
-func dashBoardStats(rules []qos.Rule) DashBoardStats {
+func dashBoardStats(rules []qos.HostRule) DashBoardStats {
 	stats := DashBoardStats{}
 
 	for _, rule := range rules {

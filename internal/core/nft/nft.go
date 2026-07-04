@@ -41,6 +41,17 @@ func (c *NFT) DeleteIPsFromPriority(ips []netip.Prefix, prio priority.Priority) 
 	}
 }
 
+func (c *NFT) DeleteServicesFromPriority(services []service.Service, prio priority.Priority) error {
+	switch prio {
+	case priority.PRIORITYHIGH:
+		return c.DeleteServicesFromHighPriority(services)
+	case priority.PRIORITYLOW:
+		return c.DeleteServicesFromLowPriority(services)
+	default:
+		return fmt.Errorf("unknown priority %v", prio)
+	}
+}
+
 func (c *NFT) AddIPsToHighPriority(ips []netip.Prefix) error {
 	return addIPsToIPSet(c.conn, c.QosTable.IPSets.HighPrioIP4Set, c.QosTable.IPSets.HighPrioIP6Set, ips)
 }

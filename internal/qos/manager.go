@@ -7,32 +7,15 @@ import (
 	"log/slog"
 	"math"
 	"net"
+	"net/netip"
 	"os"
 
 	"github.com/florianl/go-tc"
-	"github.com/kakeetopius/qosm/internal/core/htb"
 	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/service"
 	"github.com/mdlayher/ethtool"
 )
-
-type Interface struct {
-	net.Interface
-	htb.HTBObjects
-	QoSEnabled  bool
-	LinkSpeed   uint32
-	ShapingRate uint32
-	// use LinkSpeed as ShapingRate
-	AutoRate bool
-}
-
-type QoSManager struct {
-	TcConn     *tc.Tc
-	Ifaces     map[string]Interface
-	DB         *sql.DB
-	Classifier *nft.NFT
-	Logger     *slog.Logger
-}
 
 func NewManager(dbCon *sql.DB) (*QoSManager, error) {
 	tcnl, err := tc.Open(&tc.Config{})
@@ -98,8 +81,87 @@ func (m *QoSManager) InitQoSClassifier(createIfNotExists bool) error {
 	return nil
 }
 
+func (m *QoSManager) InitSavedRules() error {
+	ipRules, err := db.GetAllIPRules(m.DB)
+	if err != nil {
+		return err
+	}
+
+	for _, rule := range ipRules {
+		ip, ipErr := netip.ParsePrefix(rule.IP)
+		if ipErr != nil {
+			return ipErr
+		}
+		ipErr = m.Classifier.AddIPsToPriority([]netip.Prefix{ip}, rule.Priority)
+		if ipErr != nil {
+			return ipErr
+		}
+	}
+
+	domainRules, err := db.GetAllDomainRules(m.DB)
+	if err != nil {
+		return err
+	}
+
+	for _, rule := range domainRules {
+		ips, ipErr := rule.IPsAsPrefix()
+		if ipErr != nil {
+			return ipErr
+		}
+		err = m.Classifier.AddIPsToPriority(ips, rule.Priority)
+		if err != nil {
+			return err
+		}
+	}
+
+	serviceRules, err := db.GetAllServiceRules(m.DB)
+	if err != nil {
+		return err
+	}
+
+	for _, rule := range serviceRules {
+		err = m.Classifier.AddServicesToPriority([]service.Service{rule.Service}, rule.Priority)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (m *QoSManager) Close() {
 	m.TcConn.Close()
+}
+
+func (m *QoSManager) DeleteAllRules() error {
+	var err error
+	if m.Classifier != nil {
+		err = m.Classifier.DeleteTable()
+	} else {
+		err = nft.DeleteTable()
+	}
+
+	if err != nil {
+		if !errors.Is(err, nft.ErrTableNotFound) {
+			return err
+		}
+	}
+
+	err = db.FlushDomainRules(m.DB)
+	if err != nil {
+		return err
+	}
+
+	err = db.FlushIPRules(m.DB)
+	if err != nil {
+		return err
+	}
+
+	err = db.FlushServiceRules(m.DB)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getInterfaceSpeed(ifName string) (uint32, error) {

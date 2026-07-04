@@ -65,10 +65,10 @@ func ipSliceToString(ips []net.IP) string {
 	return stringBuilder.String()
 }
 
-func joinIPAndDomainRules(ipRules []db.IPRule, domainRules []db.DomainRule) []Rule {
-	allRules := make([]Rule, 0, len(ipRules)+len(domainRules))
+func joinIPAndDomainRules(ipRules []db.IPRule, domainRules []db.DomainRule) []HostRule {
+	allRules := make([]HostRule, 0, len(ipRules)+len(domainRules))
 	for _, rule := range ipRules {
-		allRules = append(allRules, Rule{
+		allRules = append(allRules, HostRule{
 			ID:        rule.ID,
 			Priority:  rule.Priority,
 			Target:    rule.IP,
@@ -78,7 +78,7 @@ func joinIPAndDomainRules(ipRules []db.IPRule, domainRules []db.DomainRule) []Ru
 	}
 
 	for _, rule := range domainRules {
-		allRules = append(allRules, Rule{
+		allRules = append(allRules, HostRule{
 			ID:        rule.ID,
 			Priority:  rule.Priority,
 			Target:    rule.DomainName,

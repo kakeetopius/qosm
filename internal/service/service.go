@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/kakeetopius/qosm/internal/priority"
 	"golang.org/x/sys/unix"
 )
 
@@ -20,6 +22,13 @@ const (
 type Service struct {
 	Port     uint16
 	Protocol IPProtocol
+}
+
+type ServiceRule struct {
+	ID int
+	Service
+	Priority  priority.Priority
+	CreatedAt time.Time
 }
 
 func (p IPProtocol) String() string {

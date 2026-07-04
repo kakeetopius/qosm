@@ -15,7 +15,7 @@ type PostForm struct {
 	Priority string `form:"priority"`
 }
 
-func (app *Server) PostRules(c *gin.Context) {
+func (app *Server) PostHostRules(c *gin.Context) {
 	var form PostForm
 
 	if err := c.ShouldBind(&form); err != nil {
@@ -24,7 +24,7 @@ func (app *Server) PostRules(c *gin.Context) {
 	}
 
 	var err error
-	var rule qos.Rule
+	var rule qos.HostRule
 	switch form.RuleType {
 	case "ip":
 		rule, err = app.QoSManager.AddIPRule(form.Target, form.Priority)
@@ -42,7 +42,7 @@ func (app *Server) PostRules(c *gin.Context) {
 	SendNewRuleRow(c, rule)
 }
 
-func (app *Server) DeleteRule(c *gin.Context) {
+func (app *Server) DeleteHostRule(c *gin.Context) {
 	ruleType := c.Param("type")
 	ruleID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -67,7 +67,7 @@ func (app *Server) DeleteRule(c *gin.Context) {
 	SendSuccessMessage(c, "Successfully deleted rule.")
 }
 
-func SendNewRuleRow(c *gin.Context, rule qos.Rule) {
+func SendNewRuleRow(c *gin.Context, rule qos.HostRule) {
 	c.HTML(http.StatusOK, "rule_table_row", gin.H{
 		"Message": "Successfully added rule for " + rule.Target,
 		"Rule":    rule,

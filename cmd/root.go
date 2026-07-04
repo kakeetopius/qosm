@@ -32,6 +32,7 @@ var rootCmd = &cobra.Command{
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
+	cobra.EnableCommandSorting = false
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -50,10 +51,10 @@ func init() {
 
 	rootCmd.AddCommand(
 		versionCmd(),
-		WebCmd(),
 		RuleCmd(),
 		IfaceCmd(),
 		RestoreCmd(),
+		WebCmd(),
 	)
 }
 

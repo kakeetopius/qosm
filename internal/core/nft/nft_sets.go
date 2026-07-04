@@ -166,7 +166,7 @@ func getIfaceSetElements(conn *nftables.Conn, set *nftables.Set) ([]string, erro
 	ifaceNames := make([]string, 0, len(elements))
 
 	for _, element := range elements {
-		ifaceNames = append(ifaceNames, string(trimLeftPadding(element.Key)))
+		ifaceNames = append(ifaceNames, string(trimRightPadding(element.Key)))
 	}
 
 	return ifaceNames, nil
@@ -197,6 +197,9 @@ func deleteIPsFromIPSet(conn *nftables.Conn, ip4Set *nftables.Set, ip6Set *nftab
 		}
 		err = conn.Flush()
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return ErrSetElementNotExists{Element: ipRange.String(), SetName: setToUse.Name}
+			}
 			return err
 		}
 	}
@@ -314,18 +317,8 @@ func ipIntervalEnd(prefix netip.Prefix) netip.Addr {
 
 	hostBits := bits - prefix.Bits()
 
-	// Starting from the least-significant byte, set all host bits to 1.
-	for i := len(b) - 1; i >= 0 && hostBits > 0; i-- {
-		if hostBits >= 8 {
-			// setting 8 bits at a time until we have less than 8 bits
-			b[i] = 0xff
-			hostBits -= 8
-		} else {
-			// sets the remaining hostbits at once
-			b[i] |= byte((1 << hostBits) - 1)
-			hostBits = 0
-		}
-	}
+	b = mask(b, hostBits)
+
 	addr, _ = netip.AddrFromSlice(b)
 	return addr
 }
@@ -357,23 +350,24 @@ func reconstructNftIPRange(limit1, limit2 nftables.SetElement) (netip.Prefix, er
 	}
 
 	if start.Next().Compare(end) == 0 {
+		// indicates single ip interval
 		return netip.PrefixFrom(start, bits), nil
 	}
 
 	startBytes := start.AsSlice()
 	endBytes := end.AsSlice()
 
-	prefix := longestCommonPrefix(startBytes, endBytes)
+	prefix := commonPrefixLen(startBytes, endBytes)
 
 	return netip.PrefixFrom(start, prefix), nil
 }
 
-func trimLeftPadding(b []byte) []byte {
+func trimRightPadding(b []byte) []byte {
 	b, _, _ = bytes.Cut(b, []byte{0})
 	return b
 }
 
-func longestCommonPrefix(a []byte, b []byte) int {
+func commonPrefixLen(a []byte, b []byte) int {
 	limit := min(len(a), len(b))
 	prefixLen := 0
 
@@ -386,4 +380,20 @@ func longestCommonPrefix(a []byte, b []byte) int {
 	}
 
 	return prefixLen
+}
+
+func mask(b []byte, hostBits int) []byte {
+	// Starting from the least-significant byte, set all host bits to 1.
+	for i := len(b) - 1; i >= 0 && hostBits > 0; i-- {
+		if hostBits >= 8 {
+			// setting 8 bits at a time until we have less than 8 bits
+			b[i] = 0xff
+			hostBits -= 8
+		} else {
+			// sets the remaining hostbits at once
+			b[i] |= byte((1 << hostBits) - 1)
+			hostBits = 0
+		}
+	}
+	return b
 }

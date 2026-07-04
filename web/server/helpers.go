@@ -76,8 +76,8 @@ func (app *Server) AddRoutes(router *gin.Engine) {
 	admin.POST("/settings/dns/save", app.PostDNSSettings)
 	admin.POST("/settings/security/save", app.PostSecuritySettings)
 
-	admin.POST("/rules/create", app.PostRules)
-	admin.DELETE("/rules/:type/:id", app.DeleteRule)
+	admin.POST("/rules/create", app.PostHostRules)
+	admin.DELETE("/rules/:type/:id", app.DeleteHostRule)
 
 	admin.GET("/logout", app.Logout)
 	admin.GET("/", app.DashboardPage)
