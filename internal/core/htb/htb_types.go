@@ -5,7 +5,6 @@ import (
 
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
-	"github.com/kakeetopius/qosm/internal/prio"
 )
 
 const (
@@ -44,12 +43,12 @@ type HTBQdisc struct {
 }
 
 type HTBClass struct {
-	Handle       uint32
-	ParentHandle uint32
-	Rate         uint32 // in bytes per second
-	Burst        uint32
-	Cburst       uint32
-	prio.Priority
+	Handle        uint32
+	ParentHandle  uint32
+	Rate          uint32 // in bytes per second
+	Burst         uint32
+	Cburst        uint32
+	ClassPriority uint32
 }
 
 type FWFilter struct {

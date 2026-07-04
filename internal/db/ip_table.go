@@ -2,14 +2,15 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
+
+	"github.com/kakeetopius/qosm/internal/priority"
 )
 
 type IPRule struct {
 	ID        int
 	IP        string
-	Priority  string
+	Priority  priority.Priority
 	CreatedAt time.Time
 }
 
@@ -29,27 +30,23 @@ func CheckIPRuleExists(db *sql.DB, ip string) (bool, error) {
 }
 
 func GetHighPrioIPs(db *sql.DB) ([]IPRule, error) {
-	return getIPsOfPriority(db, "high")
+	return getIPsOfPriority(db, priority.PRIORITYHIGH)
 }
 
 func GetLowPrioIPs(db *sql.DB) ([]IPRule, error) {
-	return getIPsOfPriority(db, "low")
+	return getIPsOfPriority(db, priority.PRIORITYLOW)
 }
 
-func AddIPToPriority(db *sql.DB, ip string, priority string) error {
-	if priority != "high" && priority != "low" {
-		return fmt.Errorf("unknown priority: %v", priority)
-	}
-
+func AddIPToPriority(db *sql.DB, ip string, priority priority.Priority) error {
 	return addIPRuleRow(db, IPRule{IP: ip, Priority: priority})
 }
 
 func AddIPToHighPrio(db *sql.DB, ip string) error {
-	return addIPRuleRow(db, IPRule{IP: ip, Priority: "high"})
+	return addIPRuleRow(db, IPRule{IP: ip, Priority: priority.PRIORITYHIGH})
 }
 
 func AddIPToLowPrio(db *sql.DB, ip string) error {
-	return addIPRuleRow(db, IPRule{IP: ip, Priority: "low"})
+	return addIPRuleRow(db, IPRule{IP: ip, Priority: priority.PRIORITYLOW})
 }
 
 func GetAllIPRules(db *sql.DB) ([]IPRule, error) {
@@ -113,7 +110,7 @@ func GetIPRuleByID(db *sql.DB, id int) (IPRule, error) {
 	return rule, nil
 }
 
-func DeleteIPRuleByName(db *sql.DB, name string, priority string) error {
+func DeleteIPRuleByName(db *sql.DB, name string, priority priority.Priority) error {
 	_, err := db.Exec(`
 		DELETE FROM iprules
 		WHERE ip = ?
@@ -123,7 +120,7 @@ func DeleteIPRuleByName(db *sql.DB, name string, priority string) error {
 	return err
 }
 
-func DeleteIPRuleByID(db *sql.DB, id int, priority string) error {
+func DeleteIPRuleByID(db *sql.DB, id int, priority priority.Priority) error {
 	_, err := db.Exec(`
 		DELETE FROM iprules
 		WHERE id = ?
@@ -141,7 +138,7 @@ func FlushIPRules(db *sql.DB) error {
 	return err
 }
 
-func getIPsOfPriority(db *sql.DB, priority string) ([]IPRule, error) {
+func getIPsOfPriority(db *sql.DB, priority priority.Priority) ([]IPRule, error) {
 	rows, err := db.Query(`
 		SELECT id, ip, priority, created_at
 		FROM iprules

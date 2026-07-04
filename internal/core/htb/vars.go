@@ -4,8 +4,7 @@ import (
 	"log"
 
 	"github.com/florianl/go-tc/core"
-	"github.com/kakeetopius/qosm/internal/core/nft"
-	"github.com/kakeetopius/qosm/internal/prio"
+	"github.com/kakeetopius/qosm/internal/priority"
 )
 
 //1: Root (The HTB classfull qdisc to be attached at egress)
@@ -34,40 +33,40 @@ func ParentClass() *HTBClass {
 
 func HighClass() *HTBClass {
 	return &HTBClass{
-		Handle:       HTBHIGHPRIOCLASSHANDLE,
-		ParentHandle: HTBPARENTCLASSHANDLE,
-		Priority:     prio.Priority(HTBHIGHCLASSPRIO),
-		Rate:         bytesPerSecFromMBsPerSec(50),
-		Burst:        calcBurst(50),
-		Cburst:       calcBurst(50),
+		Handle:        HTBHIGHPRIOCLASSHANDLE,
+		ParentHandle:  HTBPARENTCLASSHANDLE,
+		ClassPriority: uint32(HTBHIGHCLASSPRIO),
+		Rate:          bytesPerSecFromMBsPerSec(50),
+		Burst:         calcBurst(50),
+		Cburst:        calcBurst(50),
 	}
 }
 
 func LowClass() *HTBClass {
 	return &HTBClass{
-		Handle:       HTBLOWPRIOCLASSHANDLE,
-		ParentHandle: HTBPARENTCLASSHANDLE,
-		Priority:     prio.Priority(HTBLOWCLASSPRIO),
-		Rate:         bytesPerSecFromMBsPerSec(10),
-		Burst:        calcBurst(10),
-		Cburst:       calcBurst(10),
+		Handle:        HTBLOWPRIOCLASSHANDLE,
+		ParentHandle:  HTBPARENTCLASSHANDLE,
+		ClassPriority: uint32(HTBLOWCLASSPRIO),
+		Rate:          bytesPerSecFromMBsPerSec(10),
+		Burst:         calcBurst(10),
+		Cburst:        calcBurst(10),
 	}
 }
 
 func DefaultClass() *HTBClass {
 	return &HTBClass{
-		Handle:       HTBDEFAULTCLASSHANDLE,
-		ParentHandle: HTBPARENTCLASSHANDLE,
-		Priority:     prio.Priority(HTBDEFAULTCLASSPRIO),
-		Rate:         bytesPerSecFromMBsPerSec(40),
-		Burst:        calcBurst(40),
-		Cburst:       calcBurst(40),
+		Handle:        HTBDEFAULTCLASSHANDLE,
+		ParentHandle:  HTBPARENTCLASSHANDLE,
+		ClassPriority: uint32(HTBDEFAULTCLASSPRIO),
+		Rate:          bytesPerSecFromMBsPerSec(40),
+		Burst:         calcBurst(40),
+		Cburst:        calcBurst(40),
 	}
 }
 
 func HighPrioClassFilter() *FWFilter {
 	return &FWFilter{
-		Handle:       nft.HIGHPRIOMARK,
+		Handle:       uint32(priority.PRIORITYHIGH),
 		ParentHandle: HTBQDISCHANDLE,
 		ClassID:      HTBHIGHPRIOCLASSHANDLE,
 	}
@@ -75,8 +74,7 @@ func HighPrioClassFilter() *FWFilter {
 
 func LowPrioClassFilter() *FWFilter {
 	return &FWFilter{
-		Handle: nft.LOWPRIOMARK,
-
+		Handle:       uint32(priority.PRIORITYLOW),
 		ParentHandle: HTBQDISCHANDLE,
 		ClassID:      HTBLOWPRIOCLASSHANDLE,
 	}

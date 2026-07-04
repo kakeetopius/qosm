@@ -43,7 +43,7 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 		return err
 	}
 
-	err = m.Classifier.AddIfaceRules(iface.Index)
+	err = m.Classifier.AddIfaces([]string{iface.Name})
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 	}
 
 	if m.Classifier != nil {
-		err = m.Classifier.DeleteIfaceRules(iface.Index)
+		err = m.Classifier.DeleteIfaces([]string{iface.Name})
 		if err != nil {
 			return err
 		}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
-	"github.com/kakeetopius/qosm/internal/core/nft"
+	"github.com/kakeetopius/qosm/internal/priority"
 	"github.com/kakeetopius/qosm/internal/util"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
@@ -114,8 +114,8 @@ func getQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error)
 	}
 
 	filterMap := mapFiltersByHandle(filters, ifIndex, logger)
-	htbIface.HighClassFilter = filterMap[nft.HIGHPRIOMARK]
-	htbIface.LowClassFilter = filterMap[nft.LOWPRIOMARK]
+	htbIface.HighClassFilter = filterMap[uint32(priority.PRIORITYHIGH)]
+	htbIface.LowClassFilter = filterMap[uint32(priority.PRIORITYLOW)]
 
 	if err := validateFilters(&htbIface); err != nil {
 		return htbIface, err
@@ -205,8 +205,8 @@ func addHtbClass(tcnl *tc.Tc, ifIndex int, class *HTBClass) (*tc.Object, error) 
 		},
 	}
 
-	if class.Priority != 0 {
-		classObj.Htb.Parms.Prio = uint32(class.Priority)
+	if class.ClassPriority != 0 {
+		classObj.Htb.Parms.Prio = class.ClassPriority
 	}
 
 	err := tcnl.Class().Add(&classObj)
@@ -315,10 +315,10 @@ func mapFiltersByHandle(filters []tc.Object, ifIndex int, logger *slog.Logger) m
 			continue
 		}
 		switch htbFilter.Handle {
-		case nft.HIGHPRIOMARK:
+		case uint32(priority.PRIORITYHIGH):
 			util.Debug(logger, "htb: filter found", "name", "high_priority_filter")
 			filterMap[htbFilter.Handle] = &filters[i]
-		case nft.LOWPRIOMARK:
+		case uint32(priority.PRIORITYLOW):
 			util.Debug(logger, "htb: filter found", "name", "low_priority_filter")
 			filterMap[htbFilter.Handle] = &filters[i]
 		}
@@ -333,12 +333,12 @@ func validateFilters(htbCtx *HTBObjects) error {
 	case htbCtx.LowClassFilter == nil:
 		return ErrFilterNotFound{
 			FilterName:   "low_class_filter",
-			FilterHandle: nft.LOWPRIOMARK,
+			FilterHandle: uint32(priority.PRIORITYLOW),
 		}
 	case htbCtx.HighClassFilter == nil:
 		return ErrFilterNotFound{
 			FilterName:   "high_class_filter",
-			FilterHandle: nft.HIGHPRIOMARK,
+			FilterHandle: uint32(priority.PRIORITYHIGH),
 		}
 	}
 	return nil

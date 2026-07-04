@@ -28,14 +28,14 @@ func SetUp(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS iprules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		ip TEXT NOT NULL UNIQUE,
-		priority TEXT NOT NULL CHECK(priority IN ('high', 'low')),
+		priority INTEGER NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
 	CREATE TABLE IF NOT EXISTS domainrules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		domain_name TEXT NOT NULL UNIQUE,
-		priority TEXT NOT NULL CHECK(priority IN ('high', 'low')),
+		priority INTEGER NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		last_resolved_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);

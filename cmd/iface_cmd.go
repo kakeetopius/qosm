@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 
 	"github.com/kakeetopius/qosm/internal/core/nft"
@@ -23,7 +22,6 @@ func IfaceCmd() *cobra.Command {
 	ifaceCmd.AddCommand(
 		IfaceEnableCmd(),
 		IfaceDisableCmd(),
-		IfaceStats(),
 		IfaceListCmd(),
 	)
 	return &ifaceCmd
@@ -101,7 +99,7 @@ func IfaceDisableCmd() *cobra.Command {
 				qosManager.WithLogger(logger)
 			}
 
-			err = qosManager.InitQoSClassifier(false)
+			err = qosManager.InitQoSClassifier(true)
 			if err != nil {
 				if !errors.Is(err, nft.ErrTableNotFound) {
 					return err
@@ -121,58 +119,6 @@ func IfaceDisableCmd() *cobra.Command {
 	}
 
 	return &ifaceDisableCmd
-}
-
-func IfaceStats() *cobra.Command {
-	ifaceAddCmd := cobra.Command{
-		Use:     "stats <inteface>",
-		Short:   "Get htb stats for an interface.",
-		Aliases: []string{"s"},
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			qosManager, err := qos.NewManager(nil)
-			if err != nil {
-				return err
-			}
-			defer qosManager.Close()
-
-			if debug {
-				logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelDebug,
-				}))
-				qosManager.WithLogger(logger)
-			}
-
-			err = qosManager.InitQoSClassifier(false)
-			if err != nil {
-				return err
-			}
-			iface := args[0]
-
-			dev, err := net.InterfaceByName(iface)
-			if err != nil {
-				return err
-			}
-			stats, err := qosManager.Classifier.GetIfaceRuleStats(dev.Index)
-			if err != nil {
-				var errRuleNotFound nft.ErrRuleNotFound
-				if errors.As(err, &errRuleNotFound) {
-					return fmt.Errorf("interface %v is not initialised", iface)
-				}
-				return err
-			}
-			fmt.Println("High Priority")
-			fmt.Println("Packet Count: ", stats.HighPrio.PacketCount)
-			fmt.Println("Bytes Count: ", stats.HighPrio.ByteCount)
-			fmt.Println("Low Priority")
-			fmt.Println("Packet Count: ", stats.LowPrio.PacketCount)
-			fmt.Println("Bytes Count: ", stats.LowPrio.ByteCount)
-
-			return nil
-		},
-	}
-
-	return &ifaceAddCmd
 }
 
 func IfaceListCmd() *cobra.Command {

@@ -4,58 +4,43 @@ package nft
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"log/slog"
-	"math/bits"
-	"net/netip"
 	"os"
-	"slices"
 
 	"github.com/google/nftables"
+	"github.com/google/nftables/binaryutil"
 	"github.com/google/nftables/expr"
+	"github.com/kakeetopius/qosm/internal/priority"
 	"github.com/kakeetopius/qosm/internal/util"
+	"golang.org/x/sys/unix"
 )
 
 func NewNFTCtx(opts NFTOpts) (NFT, error) {
-	conn, err := nftables.New()
+	nftConn, err := nftables.New()
+	if err != nil {
+		return NFT{}, err
+	}
+	nft := NFT{
+		conn: nftConn,
+		opts: opts,
+	}
+
+	err = nft.initTable()
 	if err != nil {
 		return NFT{}, err
 	}
 
-	table, err := lookupQosmTable(conn, &opts)
+	err = nft.initSets()
 	if err != nil {
 		return NFT{}, err
 	}
 
-	outputChain, err := lookupQosmChain(conn, table, OUTPUTCHAINNAME, nftables.ChainHookOutput, &opts)
+	err = nft.initChains()
 	if err != nil {
 		return NFT{}, err
 	}
 
-	forwardChain, err := lookupQosmChain(conn, table, FORWARDCHAINNAME, nftables.ChainHookForward, &opts)
-	if err != nil {
-		return NFT{}, err
-	}
-
-	ipSets, err := lookupQosmIPSets(conn, table, &opts)
-	if err != nil {
-		return NFT{}, err
-	}
-
-	chains := qosmChains{
-		outputChain:  outputChain,
-		forwardChain: forwardChain,
-	}
-
-	return NFT{
-		Logger: opts.Logger,
-		conn:   conn,
-		qosmTable: qosmTable{
-			Table:      table,
-			qosmChains: chains,
-			qosmSets:   ipSets,
-		},
-	}, nil
+	return nft, nil
 }
 
 // DeleteTable removes the qosm nftables table from the system.
@@ -80,7 +65,227 @@ func DeleteTable() error {
 	return ErrTableNotFound
 }
 
-func lookupQosmTable(conn *nftables.Conn, opts *NFTOpts) (*nftables.Table, error) {
+func (c *NFT) initTable() error {
+	qosTable, err := lookupQosTable(c.conn, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.Table = qosTable
+	return nil
+}
+
+func (c *NFT) initChains() error {
+	outputChain, err := lookupQosChain(c.conn, chainParams{
+		table:       c.QosTable.Table,
+		chainName:   OUTPUTCHAINNAME,
+		hook:        nftables.ChainHookOutput,
+		chainPolicy: nftables.ChainPolicyAccept,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.initRules(&outputChain)
+	c.QosTable.OutputChain = outputChain
+
+	forwardChain, err := lookupQosChain(c.conn, chainParams{
+		table:       c.QosTable.Table,
+		chainName:   FORWARDCHAINNAME,
+		hook:        nftables.ChainHookForward,
+		chainPolicy: nftables.ChainPolicyAccept,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.initRules(&forwardChain)
+	c.QosTable.ForwardChain = forwardChain
+	return nil
+}
+
+func (c *NFT) initRules(chain *QosChain) error {
+	// Order is important here.
+	// Rule 1: checks if the dst ipv4 is in high priority ip set and if so marks the packet with highprio mark and returns from the chain
+	// Rule 2: checks if the dst ipv6 is in high priority ip set and if so marks the packet with highprio mark and returns from the chain
+	// Rule 3: checks if the dst port and l4 protocol is in high priority port set and if so marks the packet with highprio mark and returns from the chain
+	// Rule 4: checks if the dst ipv4 is in low priority ip set and if so marks the packet with lowprio mark and returns from the chain
+	// Rule 5: checks if the dst ipv6 is in low priority ip set and if so marks the packet with lowprio mark and returns from the chain
+	// Rule 6: checks if the dst port  and l4 protocol is in low priority port set and if so marks the packet with lowprio mark and returns from the chain
+
+	highPrioIP4Rule, err := lookupQosRule(c.conn, ruleParams{
+		table:        c.QosTable.Table,
+		chain:        chain.Chain,
+		ruleName:     HIGHPRIOIP4RULE,
+		l3proto:      unix.NFPROTO_IPV4,
+		keyExtractor: DstIPv4Extractor(),
+		targetSet:    c.QosTable.IPSets.HighPrioIP4Set,
+		ifaceSet:     c.QosTable.IfaceSet,
+		mark:         int(priority.PRIORITYHIGH),
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	chain.Rules.HighPrioIP4Rule = highPrioIP4Rule
+
+	highPrioIP6Rule, err := lookupQosRule(c.conn, ruleParams{
+		table:        c.QosTable.Table,
+		chain:        chain.Chain,
+		ruleName:     HIGHPRIOIP6RULE,
+		l3proto:      unix.NFPROTO_IPV6,
+		keyExtractor: DstIPv6Extractor(),
+		targetSet:    c.QosTable.IPSets.HighPrioIP6Set,
+		ifaceSet:     c.QosTable.IfaceSet,
+		mark:         int(priority.PRIORITYHIGH),
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	chain.Rules.HighPrioIP6Rule = highPrioIP6Rule
+
+	highPrioServiceRule, err := lookupQosRule(c.conn, ruleParams{
+		table:        c.QosTable.Table,
+		chain:        chain.Chain,
+		ruleName:     HIGHPRIOSERVICERULE,
+		targetSet:    c.QosTable.ServiceSets.HighPrioServiceSet,
+		keyExtractor: DstProtoPortExtractor(),
+		ifaceSet:     c.QosTable.IfaceSet,
+		mark:         int(priority.PRIORITYHIGH),
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	chain.Rules.HighPrioServiceRule = highPrioServiceRule
+
+	lowPrioIP4Rule, err := lookupQosRule(c.conn, ruleParams{
+		table:        c.QosTable.Table,
+		chain:        chain.Chain,
+		l3proto:      unix.NFPROTO_IPV4,
+		ruleName:     LOWPRIOIP4RULE,
+		targetSet:    c.QosTable.IPSets.LowPrioIP4Set,
+		keyExtractor: DstIPv4Extractor(),
+		ifaceSet:     c.QosTable.IfaceSet,
+		mark:         int(priority.PRIORITYLOW),
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	chain.Rules.LowPrioIP4Rule = lowPrioIP4Rule
+
+	lowPrioIP6Rule, err := lookupQosRule(c.conn, ruleParams{
+		table:        c.QosTable.Table,
+		chain:        chain.Chain,
+		l3proto:      unix.NFPROTO_IPV6,
+		ruleName:     LOWPRIOIP6RULE,
+		targetSet:    c.QosTable.IPSets.LowPrioIP6Set,
+		keyExtractor: DstIPv6Extractor(),
+		ifaceSet:     c.QosTable.IfaceSet,
+		mark:         int(priority.PRIORITYLOW),
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	chain.Rules.LowPrioIP6Rule = lowPrioIP6Rule
+
+	lowPrioServiceRule, err := lookupQosRule(c.conn, ruleParams{
+		table:        c.QosTable.Table,
+		chain:        chain.Chain,
+		ruleName:     LOWPRIOSERVICERULE,
+		targetSet:    c.QosTable.ServiceSets.LowPrioServiceSet,
+		keyExtractor: DstProtoPortExtractor(),
+		ifaceSet:     c.QosTable.IfaceSet,
+		mark:         int(priority.PRIORITYLOW),
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	chain.Rules.LowPrioServiceRule = lowPrioServiceRule
+
+	return nil
+}
+
+func (c *NFT) initSets() error {
+	highPrioIP4Set, err := lookupQosSet(c.conn, setParams{
+		table:      c.QosTable.Table,
+		setName:    HIGHPRIOIP4SETNAME,
+		setType:    nftables.TypeIPAddr,
+		isInterval: true,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.IPSets.HighPrioIP4Set = highPrioIP4Set
+
+	highPrioIP6Set, err := lookupQosSet(c.conn, setParams{
+		table:      c.QosTable.Table,
+		setName:    HIGHPRIOIP6SETNAME,
+		setType:    nftables.TypeIP6Addr,
+		isInterval: true,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.IPSets.HighPrioIP6Set = highPrioIP6Set
+
+	lowPrioIP4Set, err := lookupQosSet(c.conn, setParams{
+		table:      c.QosTable.Table,
+		setName:    LOWPRIOIP4SETNAME,
+		setType:    nftables.TypeIPAddr,
+		isInterval: true,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.IPSets.LowPrioIP4Set = lowPrioIP4Set
+
+	lowPrioIP6Set, err := lookupQosSet(c.conn, setParams{
+		table:      c.QosTable.Table,
+		setName:    LOWPRIOIP6SETNAME,
+		setType:    nftables.TypeIP6Addr,
+		isInterval: true,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.IPSets.LowPrioIP6Set = lowPrioIP6Set
+
+	highPrioServiceSet, err := lookupQosSet(c.conn, setParams{
+		table:          c.QosTable.Table,
+		setName:        HIGHPRIOSERVICESETNAME,
+		setType:        nftables.MustConcatSetType(nftables.TypeInetProto, nftables.TypeInetService),
+		isInterval:     false,
+		concatentation: true,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.ServiceSets.HighPrioServiceSet = highPrioServiceSet
+
+	lowPrioServiceSet, err := lookupQosSet(c.conn, setParams{
+		table:          c.QosTable.Table,
+		setName:        LOWPRIOSERVICESETNAME,
+		setType:        nftables.MustConcatSetType(nftables.TypeInetProto, nftables.TypeInetService),
+		isInterval:     false,
+		concatentation: true,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.ServiceSets.LowPrioServiceSet = lowPrioServiceSet
+
+	ifaceSet, err := lookupQosSet(c.conn, setParams{
+		table:        c.QosTable.Table,
+		setName:      IFACESETNAME,
+		setType:      nftables.TypeIFName,
+		isInterval:   false,
+		keyEndianess: binaryutil.NativeEndian,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.QosTable.IfaceSet = ifaceSet
+
+	return nil
+}
+
+func lookupQosTable(conn *nftables.Conn, opts *NFTOpts) (*nftables.Table, error) {
 	util.Debug(opts.Logger, "nft: lookup of qosm table")
 	tables, err := conn.ListTables()
 	if err != nil {
@@ -95,15 +300,15 @@ func lookupQosmTable(conn *nftables.Conn, opts *NFTOpts) (*nftables.Table, error
 	}
 
 	if opts.CreateIfNotExists {
-		return addNewQosmTable(conn, opts.Logger)
+		return createQosTable(conn, opts.Logger)
 	}
 
 	return nil, ErrTableNotFound
 }
 
-// addNewQosmTable creates and adds a new qosm nftables table to the system.
+// createQosTable creates and adds a new qosm nftables table to the system.
 // Returns the created table or an error if failed
-func addNewQosmTable(conn *nftables.Conn, logger *slog.Logger) (*nftables.Table, error) {
+func createQosTable(conn *nftables.Conn, logger *slog.Logger) (*nftables.Table, error) {
 	util.Debug(logger, "nft: creating table", "name", "qosmtable")
 	table := conn.AddTable(&nftables.Table{
 		Name:   TABLENAME,
@@ -120,186 +325,172 @@ func addNewQosmTable(conn *nftables.Conn, logger *slog.Logger) (*nftables.Table,
 
 // lookupQoSMChains searches for the specified chain within the specified nftables table.
 // If found, it return the chain. If not found, it creates the chain
-func lookupQosmChain(conn *nftables.Conn, table *nftables.Table, chainName string, hook *nftables.ChainHook, opts *NFTOpts) (qosmChain, error) {
+func lookupQosChain(conn *nftables.Conn, params chainParams, opts *NFTOpts) (QosChain, error) {
 	util.Debug(opts.Logger, "nft: lookup of qosm chain")
 	chains, err := conn.ListChains()
 	if err != nil {
-		return qosmChain{}, err
+		return QosChain{}, err
 	}
 
 	for _, chain := range chains {
-		if chain.Table.Name != table.Name {
+		if chain.Table.Name != params.table.Name {
 			continue
 		}
-		if chain.Name == chainName {
-			util.Debug(opts.Logger, "nft: chain lookup successfull", "name", chainName)
-			return qosmChain{
+		if chain.Name == params.chainName {
+			util.Debug(opts.Logger, "nft: chain lookup successfull", "name", params.chainName)
+			return QosChain{
 				Chain: chain,
 			}, nil
 		}
 	}
 
 	if opts.CreateIfNotExists {
-		return addNewQosmChain(conn, table, chainName, hook, opts.Logger)
+		return createQosChain(conn, params, opts.Logger)
 	}
 
-	return qosmChain{}, ErrChainNotFound
+	return QosChain{}, ErrChainNotFound
 }
 
-// addNewQosmChain creates and adds a new chain to the specified nftables table.
+// createQosChain creates and adds a new chain to the specified nftables table.
 // The chain is configured as the specified hook  with standard filter priority.
-func addNewQosmChain(conn *nftables.Conn, table *nftables.Table, chainName string, hook *nftables.ChainHook, logger *slog.Logger) (qosmChain, error) {
-	util.Debug(logger, "nft: creating chain", "name", chainName)
-	chainPolicy := nftables.ChainPolicyAccept
+func createQosChain(conn *nftables.Conn, params chainParams, logger *slog.Logger) (QosChain, error) {
+	util.Debug(logger, "nft: creating chain", "name", params.chainName)
+	chainPolicy := params.chainPolicy
 
 	chain := conn.AddChain(&nftables.Chain{
-		Name:     chainName,
-		Hooknum:  hook,
+		Name:     params.chainName,
+		Hooknum:  params.hook,
 		Type:     nftables.ChainTypeFilter,
-		Table:    table,
+		Table:    params.table,
 		Priority: nftables.ChainPriorityFilter,
 		Policy:   &chainPolicy,
 	})
 
 	err := conn.Flush()
 	if err != nil {
-		return qosmChain{}, err
+		return QosChain{}, err
 	}
 
-	return qosmChain{
+	return QosChain{
 		Chain: chain,
 	}, nil
 }
 
-func lookupQosmIPRules(conn *nftables.Conn, table *nftables.Table, chain *nftables.Chain, ipSets qosmSets, oifIndex int, opts *NFTOpts) (qosmRules, error) {
-	util.Debug(opts.Logger, "nft: lookup of qosm rules", "chain", chain.Name, "ofindex", oifIndex)
+func lookupQosRule(conn *nftables.Conn, params ruleParams, opts *NFTOpts) (*nftables.Rule, error) {
+	util.Debug(opts.Logger, "nft: lookup of qosm rules", "name", params.ruleName, "chain", params.chain.Name)
 
-	rules, err := conn.GetRules(table, chain)
+	rules, err := conn.GetRules(params.table, params.chain)
 	if err != nil {
-		return qosmRules{}, err
+		return nil, err
 	}
 
-	highPrioRuleName := fmt.Sprintf("%v_%v", oifIndex, HIGHPRIORULENAME)
-	lowPrioRuleName := fmt.Sprintf("%v_%v", oifIndex, LOWPRIORULENAME)
-
-	var highPrioRule *nftables.Rule
-	var lowPrioRule *nftables.Rule
+	var qosRule *nftables.Rule
 
 	for _, rule := range rules {
-		if string(rule.UserData) == highPrioRuleName {
-			util.Debug(opts.Logger, "nft: rule lookup successfull", "chain", chain.Name, "rule", highPrioRuleName)
-			highPrioRule = rule
-		}
-		if string(rule.UserData) == lowPrioRuleName {
-			util.Debug(opts.Logger, "nft: rule lookup successfull", "chain", chain.Name, "rule", lowPrioRuleName)
-			lowPrioRule = rule
+		if string(rule.UserData) == params.ruleName {
+			util.Debug(opts.Logger, "nft: rule lookup successfull", "name", params.ruleName, "chain", params.chain.Name)
+			qosRule = rule
 		}
 	}
 
-	if highPrioRule == nil {
-		if opts.CreateIfNotExists {
-			highPrioRule, err = addIPRule(conn, ruleParams{
-				table:       table,
-				chain:       chain,
-				ipSet:       ipSets.highPrioSet,
-				mark:        HIGHPRIOMARK,
-				ruleName:    highPrioRuleName,
-				oifaceIndex: oifIndex,
-			}, opts.Logger)
-			if err != nil {
-				return qosmRules{}, err
-			}
-		} else {
-			return qosmRules{}, ErrRuleNotFound{Name: highPrioRuleName}
+	if qosRule == nil && opts.CreateIfNotExists {
+		qosRule, err = createQosIPRule(conn, params, opts.Logger)
+		if err != nil {
+			return nil, err
 		}
+	} else {
+		return nil, ErrRuleNotFound{Name: params.ruleName}
 	}
 
-	if lowPrioRule == nil {
-		if opts.CreateIfNotExists {
-			lowPrioRule, err = addIPRule(conn, ruleParams{
-				table:       table,
-				chain:       chain,
-				ipSet:       ipSets.lowPrioSet,
-				mark:        LOWPRIOMARK,
-				ruleName:    lowPrioRuleName,
-				oifaceIndex: oifIndex,
-			}, opts.Logger)
-			if err != nil {
-				return qosmRules{}, err
-			}
-		} else {
-			return qosmRules{}, ErrRuleNotFound{Name: lowPrioRuleName}
-		}
-	}
-
-	return qosmRules{
-		highPrioRule: highPrioRule,
-		lowPrioRule:  lowPrioRule,
-	}, nil
+	return qosRule, nil
 }
 
-func addIPRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger) (*nftables.Rule, error) {
-	util.Debug(logger, "nft: creating rule", "chain", params.chain.Name, "rule", params.ruleName, "mark", params.mark, "oifaceIndex", params.oifaceIndex)
+func createQosIPRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger) (*nftables.Rule, error) {
+	util.Debug(logger, "nft: creating rule", "chain", params.chain.Name, "rule", params.ruleName, "mark", params.mark)
 	byteMark := make([]byte, 4)
 	binary.NativeEndian.PutUint32(byteMark, uint32(params.mark))
 
-	ifIndex := make([]byte, 4)
-	binary.NativeEndian.PutUint32(ifIndex, uint32(params.oifaceIndex))
+	exprs := make([]expr.Any, 0, 10) // The set of low level instructions for the nftables Virtual Machine.
+
+	exprsToCheckForL3Proto := []expr.Any{
+		// Load the network layer protocol of the packet into register 1
+		&expr.Meta{
+			Register: unix.NFT_REG_1,
+			Key:      expr.MetaKeyNFPROTO,
+		},
+		// check if the network layer protocol in reg 1 is equal to the one required
+		&expr.Cmp{
+			Register: unix.NFT_REG_1,
+			Data:     []byte{byte(params.l3proto)},
+		},
+	}
+	if params.l3proto != 0 {
+		// IF at all the layer 3 protocol is given, the following expressions are added to strictly match that protocol
+		exprs = append(exprs, exprsToCheckForL3Proto...)
+	}
+
+	// these exprs given in params load the key of the given set eg ip daddr of the packet into register 1.
+	exprs = append(exprs, params.keyExtractor...)
+
+	exprsToLookUpKeyInTargetSet := []expr.Any{
+		// The following expression checks if the payload in reg 1 loaded by params.keyExtractor is contained within the target set
+		// for example if the keyExtractor is DstIPv4Extractor() the reg 1 will contain the ip dst addr and the expression
+		// will check if that ip is contained in the given target set.
+		&expr.Lookup{
+			SourceRegister: unix.NFT_REG_1,
+			SetName:        params.targetSet.Name,
+			SetID:          params.targetSet.ID,
+		},
+	}
+	exprs = append(exprs, exprsToLookUpKeyInTargetSet...)
+
+	exprsToCheckForOutgoingIface := []expr.Any{
+		// The following expressions check if the outgoing interface of the packet is contained within the qos_enabled_ifaces set
+		// Load outgoing interface name into reg 1
+		&expr.Meta{
+			Register: unix.NFT_REG_1,
+			Key:      expr.MetaKeyOIFNAME,
+		},
+
+		// Check if the outgoing interface's name is part of the interface set.
+		&expr.Lookup{
+			SourceRegister: unix.NFT_REG_1,
+			SetName:        params.ifaceSet.Name,
+			SetID:          params.ifaceSet.ID,
+		},
+	}
+	exprs = append(exprs, exprsToCheckForOutgoingIface...)
+
+	exprsToSetMarkAndReturn := []expr.Any{
+		// The following expressions set the appropriate mark to the matched packets.
+		// Load the mark into register 1
+		&expr.Immediate{
+			Register: unix.NFT_REG_1,
+			Data:     byteMark,
+		},
+
+		// Set the mark field in the metadata with what is in register 1.
+		&expr.Meta{
+			Key:            expr.MetaKeyMARK,
+			SourceRegister: true, // indicates that we are reading  from the register not writing to it.
+			Register:       unix.NFT_REG_1,
+		},
+
+		// Add a counter to the rule for the matched packets.
+		&expr.Counter{},
+
+		// Stop proceesing rules for this chain
+		&expr.Verdict{
+			Kind: expr.VerdictReturn,
+		},
+	}
+	exprs = append(exprs, exprsToSetMarkAndReturn...)
 
 	rule := conn.AddRule(&nftables.Rule{
 		Table:    params.table,
 		Chain:    params.chain,
 		UserData: []byte(params.ruleName),
-		Exprs: []expr.Any{
-			// Load outgoing interface index into reg 1
-			&expr.Meta{
-				Register: 1,
-				Key:      expr.MetaKeyOIF,
-			},
-
-			// compare with what is in reg 1 ie the given interface's index
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     ifIndex,
-			},
-
-			// Load the dst IP in packet into register 1.
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseNetworkHeader,
-				Offset:       16, // bytes from start of IP Layer (leads to dest IP)
-				Len:          4,  // 4 bytes of the IPv4 addr
-			},
-
-			// Check if IP put in register 1 above is contained in the IP Set
-			&expr.Lookup{
-				SourceRegister: 1,
-				SetName:        params.ipSet.Name,
-				SetID:          params.ipSet.ID,
-			},
-
-			// Load the mark into register 1
-			&expr.Immediate{
-				Register: 1,
-				Data:     byteMark,
-			},
-
-			// Set the mark field in the metadata with what is in register 1.
-			&expr.Meta{
-				Key:            expr.MetaKeyMARK,
-				SourceRegister: true, // indicates that we are reading  from the register not writing to it.
-				Register:       1,
-			},
-
-			// Add a counter to the rule for the matched packets.
-			&expr.Counter{},
-
-			// Stop proceesing rules for this chain
-			&expr.Verdict{
-				Kind: expr.VerdictReturn,
-			},
-		},
+		Exprs:    exprs,
 	})
 
 	err := conn.Flush()
@@ -310,60 +501,41 @@ func addIPRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger) (*nf
 	return rule, nil
 }
 
-func lookupQosmIPSets(conn *nftables.Conn, table *nftables.Table, opts *NFTOpts) (qosmSets, error) {
-	util.Debug(opts.Logger, "nft: lookup of qosm sets")
+func lookupQosSet(conn *nftables.Conn, params setParams, opts *NFTOpts) (*nftables.Set, error) {
+	util.Debug(opts.Logger, "nft: lookup of qosm set ", params.setName)
 
-	var highPrio *nftables.Set
-	var lowPrio *nftables.Set
+	nftSet, err := conn.GetSetByName(params.table, params.setName)
 
-	highPrio, err := conn.GetSetByName(table, HIGHPRIOIPSETNAME)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) && opts.CreateIfNotExists {
-			highPrio, err = addQosmIPSet(conn, table, HIGHPRIOIPSETNAME, opts.Logger)
+			nftSet, err = createQosIPSet(conn, params, opts.Logger)
 			if err != nil {
-				return qosmSets{}, err
+				return nil, err
 			}
 		} else if errors.Is(err, os.ErrNotExist) {
-			return qosmSets{}, ErrSetNotFound{Name: HIGHPRIOIPSETNAME}
+			return nil, ErrSetNotFound{Name: params.setName}
 		} else {
-			return qosmSets{}, err
+			return nil, err
 		}
 	} else {
-		util.Debug(opts.Logger, "nft: set found", "name", HIGHPRIOIPSETNAME)
+		util.Debug(opts.Logger, "nft: set found", "name", HIGHPRIOIP4SETNAME)
 	}
 
-	lowPrio, err = conn.GetSetByName(table, LOWPRIOIPSETNAME)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && opts.CreateIfNotExists {
-			lowPrio, err = addQosmIPSet(conn, table, LOWPRIOIPSETNAME, opts.Logger)
-			if err != nil {
-				return qosmSets{}, err
-			}
-		} else if errors.Is(err, os.ErrNotExist) {
-			return qosmSets{}, ErrSetNotFound{Name: LOWPRIOIPSETNAME}
-		} else {
-			return qosmSets{}, err
-		}
-	} else {
-		util.Debug(opts.Logger, "nft: set found", "name", LOWPRIOIPSETNAME)
-	}
-
-	return qosmSets{
-		highPrioSet: highPrio,
-		lowPrioSet:  lowPrio,
-	}, nil
+	return nftSet, nil
 }
 
-// addQosmIPSet creates and adds a new IP address set to the specified nftables table.
+// createQosIPSet creates and adds a new IP address set to the specified nftables table.
 // The set is configured to store IPv4 addresses and is initialized as empty.
 // Returns the created set or an error if flushing fails.
-func addQosmIPSet(conn *nftables.Conn, table *nftables.Table, name string, logger *slog.Logger) (*nftables.Set, error) {
-	util.Debug(logger, "nft: creating set", "name", name)
+func createQosIPSet(conn *nftables.Conn, params setParams, logger *slog.Logger) (*nftables.Set, error) {
+	util.Debug(logger, "nft: creating set", "name", params.setName)
 	set := &nftables.Set{
-		Table:    table,
-		Name:     name,
-		KeyType:  nftables.TypeIPAddr,
-		Interval: true,
+		Table:         params.table,
+		Name:          params.setName,
+		KeyType:       params.setType,
+		Concatenation: params.concatentation,
+		Interval:      params.isInterval,
+		KeyByteOrder:  params.keyEndianess,
 	}
 	ipSetElements := []nftables.SetElement{}
 
@@ -378,169 +550,4 @@ func addQosmIPSet(conn *nftables.Conn, table *nftables.Table, name string, logge
 	}
 
 	return set, nil
-}
-
-func addIPsToIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {
-	rangeElements := make([]nftables.SetElement, 2)
-	for _, network := range ipNetworks {
-		networkAddr := network.Masked().Addr()
-		if network.Addr() != networkAddr {
-			return fmt.Errorf("invalid CIDR -> %s is not a correct network address", network)
-		}
-		broadcast := intervalEnd(network)
-
-		rangeElements[0] = nftables.SetElement{Key: networkAddr.AsSlice()}
-		rangeElements[1] = nftables.SetElement{Key: broadcast.AsSlice(), IntervalEnd: true}
-
-		err := conn.SetAddElements(ipSet, rangeElements)
-		if err != nil {
-			return err
-		}
-		err = conn.Flush()
-		if err != nil {
-			if errors.Is(err, os.ErrExist) {
-				return fmt.Errorf("%s is already a subnet or supernet of one of the IP ranges", network.String())
-			}
-			return err
-		}
-
-	}
-
-	return nil
-}
-
-// getIPSetElements retrieves all IP addresses stored in the specified nftables IP set.
-func getIPSetElements(conn *nftables.Conn, set *nftables.Set) ([]netip.Prefix, error) {
-	elements, err := conn.GetSetElements(set)
-	if err != nil {
-		return nil, err
-	}
-
-	ips := make([]netip.Prefix, 0, len(elements))
-
-	for i := 0; i < len(elements); i += 2 {
-		if i+1 == len(elements) {
-			return nil, fmt.Errorf("invald results from nftables")
-		}
-		prefix, err := reconstructNftIPRange(elements[i], elements[i+1])
-		if err != nil {
-			return nil, err
-		}
-		ips = append(ips, prefix)
-	}
-
-	return ips, nil
-}
-
-func getRuleStats(rule *nftables.Rule) RuleStats {
-	exprs := rule.Exprs
-
-	for _, e := range exprs {
-		switch counter := e.(type) {
-		case *expr.Counter:
-			return RuleStats{counter.Packets, counter.Bytes}
-		}
-	}
-
-	return RuleStats{}
-}
-
-func deleteIPsFromIPSet(conn *nftables.Conn, ipSet *nftables.Set, ipNetworks []netip.Prefix) error {
-	toDelete := make([]nftables.SetElement, 0, len(ipNetworks))
-
-	currentElements, err := getIPSetElements(conn, ipSet)
-	if err != nil {
-		return err
-	}
-
-	for _, network := range ipNetworks {
-		if !slices.Contains(currentElements, network) {
-			return fmt.Errorf(" Network %v not found", network)
-		}
-		start := network.Addr()
-		end := intervalEnd(network)
-
-		toDelete = append(toDelete,
-			nftables.SetElement{
-				Key: start.AsSlice(),
-			},
-			nftables.SetElement{
-				Key:         end.AsSlice(),
-				IntervalEnd: true,
-			})
-	}
-
-	if len(toDelete) > 0 {
-		err := conn.SetDeleteElements(ipSet, toDelete)
-		if err != nil {
-			return err
-		}
-		return conn.Flush()
-	}
-
-	return nil
-}
-
-func networkExistsInIPSet(conn *nftables.Conn, set *nftables.Set, network netip.Prefix) (bool, error) {
-	setElements, err := getIPSetElements(conn, set)
-	if err != nil {
-		return false, err
-	}
-	return slices.Contains(setElements, network), nil
-}
-
-func intervalEnd(networkPrefix netip.Prefix) netip.Addr {
-	if networkPrefix.IsSingleIP() {
-		return networkPrefix.Addr().Next()
-	}
-	networkAddr := networkPrefix.Masked().Addr()
-	hostBitLen := 32 - networkPrefix.Bits()
-
-	ip := networkAddr.As4()
-
-	ipUint := uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
-	mask := uint32((1 << hostBitLen) - 1)
-
-	broadCast := ipUint | mask
-
-	return netip.AddrFrom4([4]byte{byte(broadCast >> 24), byte(broadCast >> 16), byte(broadCast >> 8), byte(broadCast)})
-}
-
-func reconstructNftIPRange(limit1 nftables.SetElement, limit2 nftables.SetElement) (netip.Prefix, error) {
-	var upper, lower []byte
-
-	if limit1.IntervalEnd {
-		upper = limit2.Key
-		lower = limit1.Key
-	} else {
-		upper = limit1.Key
-		lower = limit2.Key
-	}
-
-	start, ok := netip.AddrFromSlice(upper)
-	if !ok {
-		return netip.Prefix{}, fmt.Errorf("nft: invalid address")
-	}
-	end, ok := netip.AddrFromSlice(lower)
-	if !ok {
-		return netip.Prefix{}, fmt.Errorf("nft: invalid address")
-	}
-
-	if start.Next().Compare(end) == 0 { // single IP range
-		return netip.PrefixFrom(start, 32), nil
-	}
-
-	netAddr := binary.BigEndian.Uint32(start.AsSlice())
-	brodcastAddr := binary.BigEndian.Uint32(end.AsSlice())
-
-	if brodcastAddr < netAddr {
-		return netip.Prefix{}, fmt.Errorf("nft: invalid CIDR range")
-	}
-
-	size := brodcastAddr - netAddr // would be something like 255
-
-	hostbits := bits.Len32(size) // min number of bits required to represent size -> effectively hostbits
-	prefix := 32 - hostbits
-
-	return netip.PrefixFrom(start, prefix), nil
 }

@@ -51,7 +51,7 @@ func (m *QoSManager) RefreshAllDomains() error {
 }
 
 func (m *QoSManager) clearOldIPs(domain *db.DomainRule, oldIPs []netip.Prefix) error {
-	err := m.Classifier.DeleteTargetsFromPriority(oldIPs, domain.Priority)
+	err := m.Classifier.DeleteIPsFromPriority(oldIPs, domain.Priority)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (m *QoSManager) clearOldIPs(domain *db.DomainRule, oldIPs []netip.Prefix) e
 }
 
 func (m *QoSManager) addNewIPs(domain *db.DomainRule, newIPs []netip.Prefix) error {
-	err := m.Classifier.AddTargetsToPriority(newIPs, domain.Priority)
+	err := m.Classifier.AddIPsToPriority(newIPs, domain.Priority)
 	if err != nil {
 		return err
 	}

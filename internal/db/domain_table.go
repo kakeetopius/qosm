@@ -2,15 +2,16 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"net/netip"
 	"time"
+
+	"github.com/kakeetopius/qosm/internal/priority"
 )
 
 type DomainRule struct {
 	ID             int
 	DomainName     string
-	Priority       string
+	Priority       priority.Priority
 	CreatedAt      time.Time
 	LastResolvedAt time.Time
 	IPs            []DomainIP
@@ -52,18 +53,14 @@ func CheckDomainRuleExists(db *sql.DB, domain string) (bool, error) {
 }
 
 func GetHighPrioDomains(db *sql.DB) ([]DomainRule, error) {
-	return getDomainsOfPriority(db, "high")
+	return getDomainsOfPriority(db, priority.PRIORITYHIGH)
 }
 
 func GetLowPrioDomains(db *sql.DB) ([]DomainRule, error) {
-	return getDomainsOfPriority(db, "low")
+	return getDomainsOfPriority(db, priority.PRIORITYLOW)
 }
 
-func AddDomainToPriority(db *sql.DB, domainName string, priority string, ips []netip.Prefix) error {
-	if priority != "high" && priority != "low" {
-		return fmt.Errorf("unknown priority: %v", priority)
-	}
-
+func AddDomainToPriority(db *sql.DB, domainName string, priority priority.Priority, ips []netip.Prefix) error {
 	err := addDomainRuleRow(db, DomainRule{DomainName: domainName, Priority: priority})
 	if err != nil {
 		return err
@@ -73,7 +70,7 @@ func AddDomainToPriority(db *sql.DB, domainName string, priority string, ips []n
 }
 
 func AddDomainToHighPriority(db *sql.DB, domainName string, ips []netip.Prefix) error {
-	err := addDomainRuleRow(db, DomainRule{DomainName: domainName, Priority: "high"})
+	err := addDomainRuleRow(db, DomainRule{DomainName: domainName, Priority: priority.PRIORITYHIGH})
 	if err != nil {
 		return err
 	}
@@ -82,7 +79,7 @@ func AddDomainToHighPriority(db *sql.DB, domainName string, ips []netip.Prefix) 
 }
 
 func AddDomainToLowPriority(db *sql.DB, domainName string, ips []netip.Prefix) error {
-	err := addDomainRuleRow(db, DomainRule{DomainName: domainName, Priority: "low"})
+	err := addDomainRuleRow(db, DomainRule{DomainName: domainName, Priority: priority.PRIORITYLOW})
 	if err != nil {
 		return err
 	}
@@ -178,7 +175,7 @@ func GetDomainRuleByID(db *sql.DB, id int) (DomainRule, error) {
 	return rule, err
 }
 
-func DeleteDomainRuleByID(db *sql.DB, id int, priority string) error {
+func DeleteDomainRuleByID(db *sql.DB, id int, priority priority.Priority) error {
 	_, err := db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		return err
@@ -193,7 +190,7 @@ func DeleteDomainRuleByID(db *sql.DB, id int, priority string) error {
 	return err
 }
 
-func DeleteDomainRuleByName(db *sql.DB, name string, priority string) error {
+func DeleteDomainRuleByName(db *sql.DB, name string, priority priority.Priority) error {
 	_, err := db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
 		return err
@@ -228,7 +225,7 @@ func FlushDomainRules(db *sql.DB) error {
 	return err
 }
 
-func getDomainsOfPriority(db *sql.DB, priority string) ([]DomainRule, error) {
+func getDomainsOfPriority(db *sql.DB, priority priority.Priority) ([]DomainRule, error) {
 	rows, err := db.Query(`
 		SELECT id, domain_name, priority, created_at, last_resolved_at
 		FROM domainrules

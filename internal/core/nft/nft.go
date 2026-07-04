@@ -1,204 +1,126 @@
 package nft
 
 import (
-	"errors"
 	"fmt"
 	"net/netip"
 
-	"github.com/kakeetopius/qosm/internal/prio"
+	"github.com/kakeetopius/qosm/internal/priority"
+	"github.com/kakeetopius/qosm/internal/service"
 )
 
-func (c *NFT) AddTargetsToPriority(targets []netip.Prefix, priorityString string) error {
-	priority, err := prio.PriorityFromString(priorityString)
-	if err != nil {
-		return err
-	}
-
-	switch priority {
-	case prio.PRIORITYHIGH:
-		return c.AddTargetsToHighPriority(targets)
-	case prio.PRIORITYLOW:
-		return c.AddTargetsToLowPriority(targets)
+func (c *NFT) AddIPsToPriority(ips []netip.Prefix, prio priority.Priority) error {
+	switch prio {
+	case priority.PRIORITYHIGH:
+		return c.AddIPsToHighPriority(ips)
+	case priority.PRIORITYLOW:
+		return c.AddIPsToLowPriority(ips)
 	default:
-		return fmt.Errorf("unknown priority %v", priority)
+		return fmt.Errorf("unknown priority %v", prio)
 	}
 }
 
-func (c *NFT) DeleteTargetsFromPriority(targets []netip.Prefix, priorityString string) error {
-	priority, err := prio.PriorityFromString(priorityString)
-	if err != nil {
-		return err
-	}
-
-	switch priority {
-	case prio.PRIORITYHIGH:
-		return c.DeleteTargetFromHighPriority(targets)
-	case prio.PRIORITYLOW:
-		return c.DeleteTargetFromLowPriority(targets)
+func (c *NFT) AddServicesToPriority(services []service.Service, prio priority.Priority) error {
+	switch prio {
+	case priority.PRIORITYHIGH:
+		return c.AddServicesToHighPrioriy(services)
+	case priority.PRIORITYLOW:
+		return c.AddServicesToLowPriority(services)
 	default:
-		return fmt.Errorf("unknown priority %v", priority)
+		return fmt.Errorf("unknown priority %v", prio)
 	}
 }
 
-// AddTargetsToHighPriority ip addresses to the high-priority IP set.
-func (c *NFT) AddTargetsToHighPriority(targets []netip.Prefix) error {
-	return addIPsToIPSet(c.conn, c.highPrioSet, targets)
+func (c *NFT) DeleteIPsFromPriority(ips []netip.Prefix, prio priority.Priority) error {
+	switch prio {
+	case priority.PRIORITYHIGH:
+		return c.DeleteIPsFromHighPriority(ips)
+	case priority.PRIORITYLOW:
+		return c.DeleteIPsFromLowPriority(ips)
+	default:
+		return fmt.Errorf("unknown priority %v", prio)
+	}
 }
 
-// AddTargetsToLowPriority adds ip addresses to the low-priority IP set.
-func (c *NFT) AddTargetsToLowPriority(targets []netip.Prefix) error {
-	return addIPsToIPSet(c.conn, c.lowPrioSet, targets)
+func (c *NFT) AddIPsToHighPriority(ips []netip.Prefix) error {
+	return addIPsToIPSet(c.conn, c.QosTable.IPSets.HighPrioIP4Set, c.QosTable.IPSets.HighPrioIP6Set, ips)
 }
 
-// DeleteTargetFromHighPriority removes the given ip addresses from the high-priority IP set.
-func (c *NFT) DeleteTargetFromHighPriority(targets []netip.Prefix) error {
-	return deleteIPsFromIPSet(c.conn, c.highPrioSet, targets)
+func (c *NFT) AddServicesToHighPrioriy(services []service.Service) error {
+	return addServicesToServiceSet(c.conn, c.QosTable.ServiceSets.HighPrioServiceSet, services)
 }
 
-// DeleteTargetFromLowPriority removes the given ip addresses from the low-priority IP set.
-func (c *NFT) DeleteTargetFromLowPriority(targets []netip.Prefix) error {
-	return deleteIPsFromIPSet(c.conn, c.lowPrioSet, targets)
+func (c *NFT) AddIPsToLowPriority(ips []netip.Prefix) error {
+	return addIPsToIPSet(c.conn, c.QosTable.IPSets.LowPrioIP4Set, c.QosTable.IPSets.LowPrioIP6Set, ips)
 }
 
-// GetHighPrioIPs returns all IP addresses in the high-priority set.
+func (c *NFT) AddServicesToLowPriority(services []service.Service) error {
+	return addServicesToServiceSet(c.conn, c.QosTable.ServiceSets.LowPrioServiceSet, services)
+}
+
+func (c *NFT) DeleteIPsFromHighPriority(ips []netip.Prefix) error {
+	return deleteIPsFromIPSet(c.conn, c.QosTable.IPSets.HighPrioIP4Set, c.QosTable.IPSets.HighPrioIP6Set, ips)
+}
+
+func (c *NFT) DeleteServicesFromHighPriority(services []service.Service) error {
+	return deleteServicesFromServiceSet(c.conn, c.QosTable.ServiceSets.HighPrioServiceSet, services)
+}
+
+func (c *NFT) DeleteIPsFromLowPriority(ips []netip.Prefix) error {
+	return deleteIPsFromIPSet(c.conn, c.QosTable.IPSets.LowPrioIP4Set, c.QosTable.IPSets.LowPrioIP6Set, ips)
+}
+
+func (c *NFT) DeleteServicesFromLowPriority(services []service.Service) error {
+	return deleteServicesFromServiceSet(c.conn, c.QosTable.ServiceSets.LowPrioServiceSet, services)
+}
+
 func (c *NFT) GetHighPrioIPs() ([]netip.Prefix, error) {
-	return getIPSetElements(c.conn, c.highPrioSet)
+	return getIPSetElements(c.conn, c.QosTable.IPSets.HighPrioIP4Set, c.QosTable.IPSets.HighPrioIP6Set)
 }
 
-// GetLowPrioIPs returns all IP addresses in the low-priority set.
+func (c *NFT) GetHighPrioServices() ([]service.Service, error) {
+	return getServiceSetElements(c.conn, c.QosTable.ServiceSets.HighPrioServiceSet)
+}
+
 func (c *NFT) GetLowPrioIPs() ([]netip.Prefix, error) {
-	return getIPSetElements(c.conn, c.lowPrioSet)
+	return getIPSetElements(c.conn, c.QosTable.IPSets.LowPrioIP4Set, c.QosTable.IPSets.LowPrioIP6Set)
 }
 
-func (c *NFT) NetworkIsHighPriority(network netip.Prefix) (bool, error) {
-	return networkExistsInIPSet(c.conn, c.highPrioSet, network)
+func (c *NFT) GetLowPrioServices() ([]service.Service, error) {
+	return getServiceSetElements(c.conn, c.QosTable.ServiceSets.LowPrioServiceSet)
 }
 
-func (c *NFT) NetworkIsLowPriority(network netip.Prefix) (bool, error) {
-	return networkExistsInIPSet(c.conn, c.lowPrioSet, network)
+func (c *NFT) IPIsHighPriority(ip netip.Prefix) (bool, error) {
+	return ipExistsInIPSets(c.conn, c.QosTable.IPSets.HighPrioIP4Set, c.QosTable.IPSets.HighPrioIP6Set, ip)
 }
 
-func (c *NFT) AddIfaceRules(ifIndex int) error {
-	if c.Table == nil {
-		return fmt.Errorf("qosm nft table not yet initialised")
-	}
-
-	nftOpts := NFTOpts{
-		CreateIfNotExists: true,
-		Logger:            c.Logger,
-	}
-
-	// get rules in output chain for given interface
-	outputRules, err := lookupQosmIPRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifIndex, &nftOpts)
-	if err != nil {
-		return err
-	}
-
-	// get rules in forward chain for given interface
-	forwardRules, err := lookupQosmIPRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifIndex, &nftOpts)
-	if err != nil {
-		return err
-	}
-
-	// cache the rules.
-	if c.outputChain.Rules == nil {
-		c.outputChain.Rules = make(map[IfaceIndex]qosmRules)
-	}
-	c.outputChain.Rules[IfaceIndex(ifIndex)] = outputRules
-
-	if c.forwardChain.Rules == nil {
-		c.forwardChain.Rules = make(map[IfaceIndex]qosmRules)
-	}
-	c.forwardChain.Rules[IfaceIndex(ifIndex)] = forwardRules
-
-	return nil
+func (c *NFT) ServiceIsHighPriority(service service.Service) (bool, error) {
+	return serviceExistsInPortSet(c.conn, c.QosTable.ServiceSets.HighPrioServiceSet, service)
 }
 
-func (c *NFT) DeleteIfaceRules(ifIndex int) error {
-	if c.Table == nil {
-		return fmt.Errorf(" qosm nft table not yet initialised")
-	}
-
-	nftOpts := NFTOpts{
-		CreateIfNotExists: false,
-		Logger:            c.Logger,
-	}
-
-	// first delete from the context itself
-	delete(c.forwardChain.Rules, IfaceIndex(ifIndex))
-	delete(c.outputChain.Rules, IfaceIndex(ifIndex))
-
-	// get rules in output chain for given interface
-	var errRuleNotFound ErrRuleNotFound
-	outputRules, err := lookupQosmIPRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifIndex, &nftOpts)
-	if err != nil {
-		if errors.As(err, &errRuleNotFound) {
-			return nil
-		}
-		return err
-	}
-	c.conn.DelRule(outputRules.highPrioRule)
-	c.conn.DelRule(outputRules.lowPrioRule)
-
-	// get rules in forward chain for given interface
-	forwardRules, err := lookupQosmIPRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifIndex, &nftOpts)
-	if err != nil {
-		if errors.As(err, &errRuleNotFound) {
-			return nil
-		}
-		return err
-	}
-	c.conn.DelRule(forwardRules.highPrioRule)
-	c.conn.DelRule(forwardRules.lowPrioRule)
-
-	err = c.conn.Flush()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (c *NFT) IPIsLowPriority(ip netip.Prefix) (bool, error) {
+	return ipExistsInIPSets(c.conn, c.QosTable.IPSets.LowPrioIP4Set, c.QosTable.IPSets.LowPrioIP6Set, ip)
 }
 
-func (c *NFT) GetIfaceRuleStats(ifindex int) (InterfaceStats, error) {
-	nftOpts := NFTOpts{
-		CreateIfNotExists: false,
-		Logger:            c.Logger,
-	}
+func (c *NFT) ServiceIsLowPriority(service service.Service) (bool, error) {
+	return serviceExistsInPortSet(c.conn, c.QosTable.ServiceSets.LowPrioServiceSet, service)
+}
 
-	// rules from output chain
-	outputRules, err := lookupQosmIPRules(c.conn, c.Table, c.outputChain.Chain, c.qosmSets, ifindex, &nftOpts)
-	if err != nil {
-		return InterfaceStats{}, err
-	}
-	outputStatsHigh := getRuleStats(outputRules.highPrioRule)
-	outputStatsLow := getRuleStats(outputRules.lowPrioRule)
+func (c *NFT) AddIfaces(ifaceName []string) error {
+	return addIfaceToIfaceSet(c.conn, c.QosTable.IfaceSet, ifaceName)
+}
 
-	// rules from forward chain
-	forwardRules, err := lookupQosmIPRules(c.conn, c.Table, c.forwardChain.Chain, c.qosmSets, ifindex, &nftOpts)
-	if err != nil {
-		return InterfaceStats{}, err
-	}
-	forwrdStatsHigh := getRuleStats(forwardRules.highPrioRule)
-	forwrdStatsLow := getRuleStats(forwardRules.lowPrioRule)
+func (c *NFT) DeleteIfaces(ifaceName []string) error {
+	return deleteIfacesFromSet(c.conn, c.QosTable.IfaceSet, ifaceName)
+}
 
-	// aggregate stats from both output and foward chains into one.
-	return InterfaceStats{
-		IfIndex: ifindex,
-		HighPrio: RuleStats{
-			PacketCount: outputStatsHigh.PacketCount + forwrdStatsHigh.PacketCount,
-			ByteCount:   outputStatsHigh.ByteCount + forwrdStatsHigh.ByteCount,
-		},
-		LowPrio: RuleStats{
-			PacketCount: outputStatsLow.PacketCount + forwrdStatsLow.PacketCount,
-			ByteCount:   outputStatsLow.ByteCount + forwrdStatsLow.ByteCount,
-		},
-	}, nil
+func (c *NFT) IfaceExistsInSet(ifaceName string) (bool, error) {
+	return ifaceExistsInIfaceSet(c.conn, c.QosTable.IfaceSet, ifaceName)
 }
 
 // DeleteTable removes the qosm nftables table from the system. The context becomes invalid after this operation.
 func (c *NFT) DeleteTable() error {
 	fmt.Println("Deleting table")
-	c.conn.DelTable(c.Table)
+	c.conn.DelTable(c.QosTable.Table)
 	err := c.conn.Flush()
 	if err != nil {
 		return err

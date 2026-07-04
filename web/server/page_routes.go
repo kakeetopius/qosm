@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/core/pam"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/priority"
 	"github.com/kakeetopius/qosm/internal/qos"
 )
 
@@ -110,9 +111,9 @@ func dashBoardStats(rules []qos.Rule) DashBoardStats {
 		}
 
 		switch rule.Priority {
-		case "high":
+		case priority.PRIORITYHIGH:
 			stats.HighPrioTargets++
-		case "low":
+		case priority.PRIORITYLOW:
 			stats.LowPrioTargets++
 		}
 	}

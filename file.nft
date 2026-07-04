@@ -1,0 +1,14 @@
+table inet filter {
+    # 1. Create the set with type ifname
+    set allowed_ifs {
+        type ifname
+        elements = { "eth0", "wlan0" , "wlo1"}
+    }
+
+    chain input {
+        type filter hook input priority 0; policy drop;
+
+        # 2. Match the packet using iifname
+        iifname @allowed_ifs accept
+    }
+}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/kakeetopius/qosm/internal/core/nft"
 	"github.com/kakeetopius/qosm/internal/db"
+	"github.com/kakeetopius/qosm/internal/priority"
 	"github.com/kakeetopius/qosm/internal/util"
 )
 
@@ -17,18 +18,22 @@ type Rule struct {
 	ID        int
 	Target    string
 	Type      string
-	Priority  string
+	Priority  priority.Priority
 	CreatedAt time.Time
 }
 
-func (m *QoSManager) AddDomainRule(domain string, priority string) (rule Rule, err error) {
+func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule, err error) {
 	defer func() {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleSuccessLog(m.DB, domain, priority)
+			addRuleSuccessLog(m.DB, domain, prioString)
 		}
 	}()
+	prio, err := priority.PriorityFromString(prioString)
+	if err != nil {
+		return Rule{}, err
+	}
 
 	exists, err := db.CheckDomainRuleExists(m.DB, domain)
 	if err != nil {
@@ -57,14 +62,14 @@ func (m *QoSManager) AddDomainRule(domain string, priority string) (rule Rule, e
 
 	addrs := util.NetIPtoNetIPPRefix(ips)
 
-	util.Debug(m.Logger, "add_rule", "target", domain, "priority", priority)
+	util.Debug(m.Logger, "add_rule", "target", domain, "priority", prioString)
 
-	err = m.Classifier.AddTargetsToPriority(addrs, priority)
+	err = m.Classifier.AddIPsToPriority(addrs, prio)
 	if err != nil {
 		return Rule{}, err
 	}
 
-	err = db.AddDomainToPriority(m.DB, domain, priority, addrs)
+	err = db.AddDomainToPriority(m.DB, domain, prio, addrs)
 	if err != nil {
 		return rule, err
 	}
@@ -76,21 +81,25 @@ func (m *QoSManager) AddDomainRule(domain string, priority string) (rule Rule, e
 
 	return Rule{
 		Type:      "domain",
-		Priority:  domainRule.Priority,
+		Priority:  prio,
 		Target:    domainRule.DomainName,
 		ID:        domainRule.ID,
 		CreatedAt: domainRule.CreatedAt,
 	}, nil
 }
 
-func (m *QoSManager) AddIPRule(ip string, priority string) (rule Rule, err error) {
+func (m *QoSManager) AddIPRule(ip string, prioString string) (rule Rule, err error) {
 	defer func() {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleSuccessLog(m.DB, ip, priority)
+			addRuleSuccessLog(m.DB, ip, prioString)
 		}
 	}()
+	prio, err := priority.PriorityFromString(prioString)
+	if err != nil {
+		return Rule{}, err
+	}
 
 	addrs, err := util.TargetsFromString(ip)
 	if err != nil {
@@ -105,15 +114,15 @@ func (m *QoSManager) AddIPRule(ip string, priority string) (rule Rule, err error
 		return rule, fmt.Errorf("rule for %v already exists", ip)
 	}
 
-	util.Debug(m.Logger, "add_rule", "target", ip, "priority", priority)
+	util.Debug(m.Logger, "add_rule", "target", ip, "priority", prioString)
 
-	err = m.Classifier.AddTargetsToPriority(addrs, priority)
+	err = m.Classifier.AddIPsToPriority(addrs, prio)
 	if err != nil {
 		return Rule{}, err
 	}
 
 	ipString := addrs[0].String()
-	err = db.AddIPToPriority(m.DB, ipString, priority)
+	err = db.AddIPToPriority(m.DB, ipString, prio)
 	if err != nil {
 		return rule, err
 	}
@@ -125,7 +134,7 @@ func (m *QoSManager) AddIPRule(ip string, priority string) (rule Rule, err error
 
 	return Rule{
 		Type:      "ip",
-		Priority:  ipRule.Priority,
+		Priority:  prio,
 		Target:    ipRule.IP,
 		ID:        ipRule.ID,
 		CreatedAt: ipRule.CreatedAt,
@@ -143,7 +152,7 @@ func (m *QoSManager) InitSavedRules() error {
 		if ipErr != nil {
 			return ipErr
 		}
-		ipErr = m.Classifier.AddTargetsToPriority([]netip.Prefix{ip}, rule.Priority)
+		ipErr = m.Classifier.AddIPsToPriority([]netip.Prefix{ip}, rule.Priority)
 		if ipErr != nil {
 			return ipErr
 		}
@@ -159,7 +168,7 @@ func (m *QoSManager) InitSavedRules() error {
 		if err != nil {
 			return err
 		}
-		err = m.Classifier.AddTargetsToPriority(ips, rule.Priority)
+		err = m.Classifier.AddIPsToPriority(ips, rule.Priority)
 		if err != nil {
 			return err
 		}
@@ -181,7 +190,7 @@ func (m *QoSManager) DeleteDomainRuleByID(domainRuleID int) (err error) {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(m.DB, domainRule.DomainName, domainRule.Priority)
+			addRuleDeletedLog(m.DB, domainRule.DomainName, domainRule.Priority.String())
 		}
 	}()
 
@@ -206,7 +215,7 @@ func (m *QoSManager) DeleteDomainRuleByName(name string) error {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(m.DB, domainRule.DomainName, domainRule.Priority)
+			addRuleDeletedLog(m.DB, domainRule.DomainName, domainRule.Priority.String())
 		}
 	}()
 
@@ -231,21 +240,21 @@ func (m *QoSManager) DeleteIPRuleByID(ipRuleID int) error {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(m.DB, ipRule.IP, ipRule.Priority)
+			addRuleDeletedLog(m.DB, ipRule.IP, ipRule.Priority.String())
 		}
 	}()
-
-	err = db.DeleteIPRuleByID(m.DB, ipRuleID, ipRule.Priority)
-	if err != nil {
-		return err
-	}
 
 	addr, err := netip.ParsePrefix(ipRule.IP)
 	if err != nil {
 		return err
 	}
 
-	return m.Classifier.DeleteTargetsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+	err = m.Classifier.DeleteIPsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+	if err != nil {
+		return err
+	}
+
+	return db.DeleteIPRuleByID(m.DB, ipRuleID, ipRule.Priority)
 }
 
 func (m *QoSManager) DeleteIPRuleByName(ipRuleName string) error {
@@ -261,20 +270,21 @@ func (m *QoSManager) DeleteIPRuleByName(ipRuleName string) error {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
 		} else {
-			addRuleDeletedLog(m.DB, ipRule.IP, ipRule.Priority)
+			addRuleDeletedLog(m.DB, ipRule.IP, ipRule.Priority.String())
 		}
 	}()
-
-	err = db.DeleteIPRuleByName(m.DB, ipRuleName, ipRule.Priority)
-	if err != nil {
-		return err
-	}
 
 	addr, err := netip.ParsePrefix(ipRule.IP)
 	if err != nil {
 		return err
 	}
-	return m.Classifier.DeleteTargetsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+
+	err = m.Classifier.DeleteIPsFromPriority([]netip.Prefix{addr}, ipRule.Priority)
+	if err != nil {
+		return err
+	}
+
+	return db.DeleteIPRuleByName(m.DB, ipRuleName, ipRule.Priority)
 }
 
 func (m *QoSManager) DeleteAllRules() error {
@@ -353,5 +363,5 @@ func (m *QoSManager) deleteDomainAddrs(domainRule db.DomainRule) error {
 		addrs = append(addrs, ip)
 	}
 
-	return m.Classifier.DeleteTargetsFromPriority(addrs, domainRule.Priority)
+	return m.Classifier.DeleteIPsFromPriority(addrs, domainRule.Priority)
 }
