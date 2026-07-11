@@ -38,10 +38,10 @@ type Interface struct {
 	AutoRate bool
 }
 
-type HostRule struct {
+type Rule struct {
 	ID        int
 	Target    string
-	Type      string // ip or domain
+	Type      string // ip or domain or service
 	Priority  priority.Priority
 	CreatedAt time.Time
 }

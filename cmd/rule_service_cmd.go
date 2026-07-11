@@ -24,15 +24,6 @@ func ServiceRuleAddCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			toAdd := make([]service.Service, 0, len(args))
-			for _, serviceSpec := range args {
-				serv, err := service.ServiceFromString(serviceSpec)
-				if err != nil {
-					return err
-				}
-				toAdd = append(toAdd, serv)
-			}
-
 			dbConn, err := db.NewConn(appConfig.GetString("db.path"))
 			if err != nil {
 				return err
@@ -61,7 +52,7 @@ func ServiceRuleAddCmd() *cobra.Command {
 				return err
 			}
 
-			for _, serv := range toAdd {
+			for _, serv := range args {
 				_, err := qosManager.AddServiceRule(serv, priority)
 				if err != nil {
 					return err
@@ -178,7 +169,7 @@ func ServiceRuleListCmd() *cobra.Command {
 				{"ID", "Service", "Created At"},
 			}
 			for _, rule := range highPrio {
-				highPrioTableData = append(highPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.String(), rule.CreatedAt.String()})
+				highPrioTableData = append(highPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Target, rule.CreatedAt.String()})
 			}
 
 			lowPrioTable := pterm.DefaultTable
@@ -186,7 +177,7 @@ func ServiceRuleListCmd() *cobra.Command {
 				{"ID", "Service", "Created At"},
 			}
 			for _, rule := range lowPrio {
-				lowPrioTableData = append(lowPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.String(), rule.CreatedAt.String()})
+				lowPrioTableData = append(lowPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Target, rule.CreatedAt.String()})
 			}
 
 			if len(highPrio) > 0 {

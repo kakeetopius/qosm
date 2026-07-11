@@ -21,6 +21,7 @@ type DashBoardStats struct {
 	TotalTargets    int
 	TotalDomains    int
 	TotalIPs        int
+	TotalServices   int
 }
 
 func (app *Server) LoginPost(ctx *gin.Context) {
@@ -70,14 +71,13 @@ func (app *Server) LoginPage(c *gin.Context) {
 
 func (app *Server) DashboardPage(c *gin.Context) {
 	session := sessions.Default(c)
-	enabled := app.QoSManager.EnabledInterfaces()
 
 	allRules, err := app.QoSManager.GetAllRules()
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	slices.SortFunc(allRules, func(a, b qos.HostRule) int {
+	slices.SortFunc(allRules, func(a, b qos.Rule) int {
 		return -a.CreatedAt.Compare(b.CreatedAt)
 	})
 
@@ -92,14 +92,13 @@ func (app *Server) DashboardPage(c *gin.Context) {
 		"Description": "Overview of network traffic and QoS policies",
 		"User":        session.Get("username"),
 		"Role":        session.Get("role"),
-		"Enabled":     len(enabled) > 0,
 		"Rules":       rulesToDisplay,
 		"Stats":       dashBoardStats(allRules),
 		"Ifaces":      app.QoSManager.Ifaces,
 	})
 }
 
-func dashBoardStats(rules []qos.HostRule) DashBoardStats {
+func dashBoardStats(rules []qos.Rule) DashBoardStats {
 	stats := DashBoardStats{}
 
 	for _, rule := range rules {
@@ -108,6 +107,8 @@ func dashBoardStats(rules []qos.HostRule) DashBoardStats {
 			stats.TotalDomains++
 		case "ip":
 			stats.TotalIPs++
+		case "service":
+			stats.TotalServices++
 		}
 
 		switch rule.Priority {

@@ -69,7 +69,6 @@ func (app *Server) AddRoutes(router *gin.Engine) {
 	admin.DELETE("/logs/delete", app.LogsDelete)
 
 	admin.GET("/settings", app.SettingsPage)
-	admin.POST("/settings/system/save", app.PostSystemSettings)
 	admin.POST("/settings/interfaces/:ifaceName", app.PostInterfaceSettings)
 	admin.GET("/settings/interfaces/:ifaceName", app.GetInterfaceSettingsPopUp)
 	admin.POST("/settings/dns/save", app.PostDNSSettings)

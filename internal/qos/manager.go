@@ -183,6 +183,61 @@ func (m *QoSManager) DeleteAllRules() error {
 	return nil
 }
 
+func (m *QoSManager) GetAllRules() ([]Rule, error) {
+	ipRules, err := db.GetAllIPRules(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	domainRules, err := db.GetAllDomainRules(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	serviceRules, err := db.GetAllServiceRules(m.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	rules := joinIPAndDomainRules(ipRules, domainRules)
+	rules = append(rules, serviceRulesToGenericRules(serviceRules)...)
+	return rules, nil
+}
+
+func (m *QoSManager) GetHighPriorityRules() ([]Rule, error) {
+	highPrioIPRules, err := db.GetHighPrioIPs(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	highPrioDomainRules, err := db.GetHighPrioDomains(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	serviceRules, err := db.GetAllServiceRules(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	rules := joinIPAndDomainRules(highPrioIPRules, highPrioDomainRules)
+	rules = append(rules, serviceRulesToGenericRules(serviceRules)...)
+	return rules, nil
+}
+
+func (m *QoSManager) GetLowPriorityRules() ([]Rule, error) {
+	lowPrioIPRules, err := db.GetLowPrioIPs(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	lowPrioDomainRules, err := db.GetLowPrioDomains(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	serviceRules, err := db.GetAllServiceRules(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	rules := joinIPAndDomainRules(lowPrioIPRules, lowPrioDomainRules)
+	rules = append(rules, serviceRulesToGenericRules(serviceRules)...)
+	return rules, nil
+}
+
 func (m *QoSManager) getNetInterfaces() error {
 	ifaces, err := net.Interfaces()
 	if err != nil {

@@ -1,41 +1,6 @@
 {{ define "content" }}
 <main class="flex-1 p-8 space-y-8">
 
-	<!-- ================= SYSTEM SETTINGS ================= -->
-	<form hx-post="/settings/system/save" hx-swap="none">
-		<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
-
-			<h3 class="text-lg font-semibold">System Settings</h3>
-
-			<!-- Logging Level -->
-			<div>
-				<label class="block text-sm text-zinc-300 mb-2">
-					Logging Level
-				</label>
-
-				<select name="logging_level" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
-
-					<option {{ if eq .Settings.LoggingLevel "Info" }}selected{{ end }}>
-						Info
-					</option>
-
-					<option {{ if eq .Settings.LoggingLevel "Warning" }}selected{{ end }}>
-						Warning
-					</option>
-
-					<option {{ if eq .Settings.LoggingLevel "Error" }}selected{{ end }}>
-						Error Only
-					</option>
-
-					<option {{ if eq .Settings.LoggingLevel "Debug" }}selected{{ end }}>
-						Debug
-					</option>
-				</select>
-			</div>
-
-
-		</section>
-	</form>
 
 	<!-- ================= INTERFACE SETTINGS ================= -->
 	<section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-6">
@@ -123,17 +88,6 @@
 
 			<h3 class="text-lg font-semibold">Security Settings</h3>
 
-			<!-- Admin Access -->
-			<div class="flex items-center justify-between">
-				<div>
-					<p class="font-medium">Admin Access</p>
-					<p class="text-sm text-zinc-400">
-						Restrict configuration access
-					</p>
-				</div>
-
-				<input type="checkbox" checked class="w-5 h-5 accent-blue-600">
-			</div>
 
 			<!-- Session Timeout -->
 			<div>

@@ -201,7 +201,7 @@ func addRuleDeletedLog(dbCon *sql.DB, target string, priority string) error {
 		dbCon,
 		db.Log{
 			EventType:   "RULE",
-			Description: fmt.Sprintf("deleted %s prioriy rule to %s", strings.ToUpper(priority), target),
+			Description: fmt.Sprintf("deleted %s prioriy rule for %s", strings.ToUpper(priority), target),
 		},
 	)
 }
@@ -242,10 +242,10 @@ func ipSliceToString(ips []net.IP) string {
 	return stringBuilder.String()
 }
 
-func joinIPAndDomainRules(ipRules []db.IPRule, domainRules []db.DomainRule) []HostRule {
-	allRules := make([]HostRule, 0, len(ipRules)+len(domainRules))
+func joinIPAndDomainRules(ipRules []db.IPRule, domainRules []db.DomainRule) []Rule {
+	allRules := make([]Rule, 0, len(ipRules)+len(domainRules))
 	for _, rule := range ipRules {
-		allRules = append(allRules, HostRule{
+		allRules = append(allRules, Rule{
 			ID:        rule.ID,
 			Priority:  rule.Priority,
 			Target:    rule.IP,
@@ -255,7 +255,7 @@ func joinIPAndDomainRules(ipRules []db.IPRule, domainRules []db.DomainRule) []Ho
 	}
 
 	for _, rule := range domainRules {
-		allRules = append(allRules, HostRule{
+		allRules = append(allRules, Rule{
 			ID:        rule.ID,
 			Priority:  rule.Priority,
 			Target:    rule.DomainName,

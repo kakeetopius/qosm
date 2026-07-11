@@ -24,12 +24,14 @@ func (app *Server) PostHostRules(c *gin.Context) {
 	}
 
 	var err error
-	var rule qos.HostRule
+	var rule qos.Rule
 	switch form.RuleType {
 	case "ip":
 		rule, err = app.QoSManager.AddIPRule(form.Target, form.Priority)
 	case "domain":
 		rule, err = app.QoSManager.AddDomainRule(form.Target, form.Priority)
+	case "service":
+		rule, err = app.QoSManager.AddServiceRule(form.Target, form.Priority)
 	default:
 		err = fmt.Errorf("unknown rule type: %s", form.RuleType)
 	}
@@ -55,6 +57,8 @@ func (app *Server) DeleteHostRule(c *gin.Context) {
 		err = app.QoSManager.DeleteDomainRuleByID(ruleID)
 	case "ip":
 		err = app.QoSManager.DeleteIPRuleByID(ruleID)
+	case "service":
+		err = app.QoSManager.DeleteServiceRuleByID(ruleID)
 	default:
 		err = fmt.Errorf("unknown rule type: %s", ruleType)
 	}
@@ -67,7 +71,7 @@ func (app *Server) DeleteHostRule(c *gin.Context) {
 	SendSuccessMessage(c, "Successfully deleted rule.")
 }
 
-func SendNewRuleRow(c *gin.Context, rule qos.HostRule) {
+func SendNewRuleRow(c *gin.Context, rule qos.Rule) {
 	c.HTML(http.StatusOK, "rule_table_row", gin.H{
 		"Message": "Successfully added rule for " + rule.Target,
 		"Rule":    rule,

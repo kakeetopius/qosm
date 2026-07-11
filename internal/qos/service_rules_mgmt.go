@@ -10,7 +10,11 @@ import (
 	"github.com/kakeetopius/qosm/internal/service"
 )
 
-func (m *QoSManager) AddServiceRule(serv service.Service, prioString string) (rule service.ServiceRule, err error) {
+func (m *QoSManager) AddServiceRule(servStr string, prioString string) (rule Rule, err error) {
+	serv, err := service.ServiceFromString(servStr)
+	if err != nil {
+		return Rule{}, err
+	}
 	defer func() {
 		if err != nil {
 			db.AddErrorLog(m.DB, err, "")
@@ -20,7 +24,7 @@ func (m *QoSManager) AddServiceRule(serv service.Service, prioString string) (ru
 	}()
 	prio, err := priority.PriorityFromString(prioString)
 	if err != nil {
-		return service.ServiceRule{}, err
+		return Rule{}, err
 	}
 
 	exists, err := db.CheckServiceRuleExists(m.DB, serv)
@@ -37,7 +41,7 @@ func (m *QoSManager) AddServiceRule(serv service.Service, prioString string) (ru
 		err = m.Classifier.AddServicesToPriority([]service.Service{serv}, prio)
 	}
 	if err != nil {
-		return service.ServiceRule{}, err
+		return Rule{}, err
 	}
 
 	err = db.AddServiceToPriority(m.DB, serv, prio)
@@ -50,7 +54,13 @@ func (m *QoSManager) AddServiceRule(serv service.Service, prioString string) (ru
 		return rule, err
 	}
 
-	return serviceRule, nil
+	return Rule{
+		ID:        serviceRule.ID,
+		Target:    serviceRule.String(),
+		Type:      "service",
+		Priority:  serviceRule.Priority,
+		CreatedAt: serviceRule.CreatedAt,
+	}, nil
 }
 
 func (m *QoSManager) DeleteServiceRuleByID(servID int) (err error) {
@@ -111,14 +121,43 @@ func (m *QoSManager) DeleteServiceRule(serv service.Service) error {
 	return db.DeleteServiceRuleByID(m.DB, servRule.ID, servRule.Priority)
 }
 
-func (m *QoSManager) GetAllServiceRules() ([]service.ServiceRule, error) {
-	return db.GetAllServiceRules(m.DB)
+func (m *QoSManager) GetAllServiceRules() ([]Rule, error) {
+	servRules, err := db.GetAllServiceRules(m.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	return serviceRulesToGenericRules(servRules), nil
 }
 
-func (m *QoSManager) GetHighPriorityServices() ([]service.ServiceRule, error) {
-	return db.GetHighPrioServices(m.DB)
+func (m *QoSManager) GetHighPriorityServices() ([]Rule, error) {
+	servRules, err := db.GetHighPrioServices(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	return serviceRulesToGenericRules(servRules), nil
 }
 
-func (m *QoSManager) GetLowPriorityServices() ([]service.ServiceRule, error) {
-	return db.GetLowPrioServices(m.DB)
+func (m *QoSManager) GetLowPriorityServices() ([]Rule, error) {
+	servRules, err := db.GetLowPrioServices(m.DB)
+	if err != nil {
+		return nil, err
+	}
+	return serviceRulesToGenericRules(servRules), nil
+}
+
+func serviceRulesToGenericRules(servRules []service.ServiceRule) []Rule {
+	rules := make([]Rule, 0, len(servRules))
+	for _, servRule := range servRules {
+		rules = append(rules,
+			Rule{
+				ID:        servRule.ID,
+				Target:    servRule.String(),
+				Type:      "service",
+				Priority:  servRule.Priority,
+				CreatedAt: servRule.CreatedAt,
+			})
+	}
+
+	return rules
 }

@@ -16,16 +16,17 @@
 					<select name="type" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2">
 						<option value="ip">IP Address</option>
 						<option value="domain">Domain</option>
+						<option value="service">Service</option>
 					</select>
 				</div>
 
 				<!-- target -->
 				<div>
 					<label class="block text-sm text-zinc-300 mb-2">
-						IP Address / Domain
+						IP Address / Domain / Service
 					</label>
 
-					<input name="target" placeholder="e.g. 192.168.1.10 or youtube.com"
+					<input name="target" placeholder="e.g. 192.168.1.10 or youtube.com or tcp/443 or udp/53"
 						class="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2" />
 				</div>
 
@@ -68,19 +69,25 @@
 			<div class="mt-6 space-y-3 text-sm">
 
 				<div class="p-3 rounded-lg bg-zinc-800">
-					<p class="text-zinc-400">Example Rule</p>
+					<p class="text-zinc-400">Example Domain Rule</p>
 					<p class="font-medium">youtube.com → LOW priority</p>
 				</div>
 
 				<div class="p-3 rounded-lg bg-zinc-800">
-					<p class="text-zinc-400">Example Rule</p>
+					<p class="text-zinc-400">Example IP Rule</p>
 					<p class="font-medium">192.168.1.10 → HIGH priority</p>
 				</div>
 
+				<div class="p-3 rounded-lg bg-zinc-800">
+					<p class="text-zinc-400">Example Service Rule</p>
+					<p class="font-medium">tcp/80 → HIGH priority</p>
+				</div>
 			</div>
 
 			<div class="mt-6 text-xs text-zinc-500">
-				Tip: Critical rules override all others.
+				Tip: Domain / IP rules are matched before Service Rules, so if a service is defined as low priority and
+				an IP is defined as high priority
+				all traffic heading for that IP will be high priority even the service that was marked low priority.
 			</div>
 
 		</section>
