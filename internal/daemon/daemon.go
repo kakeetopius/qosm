@@ -265,8 +265,9 @@ func (d *Daemon) handleEnableIfaceRequest(request *protobuf.Request) error {
 	for _, iface := range ifaces {
 		ifIndex := iface.GetIfindex()
 		ifName := iface.GetName()
+		rate := iface.GetRate()
 
-		err := htb.InitHTBOnIface(d.TcConn, int(ifIndex), d.Logger)
+		err := htb.InitHTBOnIface(d.TcConn, int(ifIndex), rate, d.Logger)
 		if err != nil && !errors.Is(err, htb.ErrQdisExists) {
 			return err
 		}

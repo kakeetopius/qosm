@@ -8,7 +8,7 @@ import (
 	"github.com/florianl/go-tc"
 )
 
-func InitHTBOnIface(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) error {
+func InitHTBOnIface(tcnl *tc.Tc, ifIndex int, rate uint32, logger *slog.Logger) error {
 	_, err := findRootQdisc(tcnl, ifIndex)
 	if err == nil {
 		return ErrQdisExists
@@ -16,7 +16,7 @@ func InitHTBOnIface(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) error {
 		return err
 	}
 
-	_, err = CreateQdisc(tcnl, ifIndex, logger)
+	_, err = CreateQdisc(tcnl, ifIndex, rate, logger)
 	if err != nil {
 		return err
 	}

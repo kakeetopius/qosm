@@ -18,6 +18,7 @@ message Service {
 message Interface {
   string name = 1;
   int32 ifindex = 2;
+  uint32 rate = 3;
 }
 
 message IPPrefix {

@@ -75,20 +75,31 @@ func (m *QoSManager) sendDeleteServiceRequest(servs []service.Service, prio prio
 	return m.sendRequestToDaemon(request)
 }
 
-func (m *QoSManager) sendEnableIfaceRequest(ifName string, ifIndex int) error {
+func (m *QoSManager) sendEnableIfaceRequest(ifaceName string, ifIndex int32, shapingRate uint32) error {
 	request := protobuf.Request_builder{
 		EnableIfaces: protobuf.EnableIfaces_builder{
-			Ifaces: []*protobuf.Interface{util.GetProtobufInterface(ifName, int32(ifIndex))},
+			Ifaces: []*protobuf.Interface{
+				protobuf.Interface_builder{
+					Name:    &ifaceName,
+					Ifindex: &ifIndex,
+					Rate:    &shapingRate,
+				}.Build(),
+			},
 		}.Build(),
 	}.Build()
 
 	return m.sendRequestToDaemon(request)
 }
 
-func (m *QoSManager) sendDisableIfaceRequest(ifName string, ifIndex int) error {
+func (m *QoSManager) sendDisableIfaceRequest(ifaceName string, ifIndex int32) error {
 	request := protobuf.Request_builder{
 		DisableIfaces: protobuf.DisableIfaces_builder{
-			Ifaces: []*protobuf.Interface{util.GetProtobufInterface(ifName, int32(ifIndex))},
+			Ifaces: []*protobuf.Interface{
+				protobuf.Interface_builder{
+					Name:    &ifaceName,
+					Ifindex: &ifIndex,
+				}.Build(),
+			},
 		}.Build(),
 	}.Build()
 
@@ -222,6 +233,16 @@ func addTCDisabledLog(dbCon *sql.DB, iface string) error {
 		db.Log{
 			EventType:   "TC",
 			Description: fmt.Sprintf("disabled traffic control on interface %s", iface),
+		},
+	)
+}
+
+func addRateChangedLog(dbCon *sql.DB, iface string, newRate uint32) error {
+	return db.AddLog(
+		dbCon,
+		db.Log{
+			EventType:   "TC",
+			Description: fmt.Sprintf("changed rate for interface %s to %v", iface, newRate),
 		},
 	)
 }

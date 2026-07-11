@@ -25,6 +25,7 @@ func (app *Server) GetInterfaceSettingsPopUp(c *gin.Context) {
 func (app *Server) PostInterfaceSettings(c *gin.Context) {
 	ifaceName := c.Param("ifaceName")
 	enableQoS := c.PostForm("qos_enabled") != ""
+	disableQoS := !enableQoS
 	rateStr := c.PostForm("rate")
 	autorate := c.PostForm("auto_rate") != ""
 
@@ -41,43 +42,53 @@ func (app *Server) PostInterfaceSettings(c *gin.Context) {
 		return
 	}
 
-	if enableQoS && iface.QoSEnabled {
-		return
-	} else if !enableQoS && !iface.QoSEnabled {
-		return
-	}
-
-	if enableQoS {
-		if rateStr == "" {
-			err = fmt.Errorf("please provide a rate for the interface")
-			return
-		}
-
-		var rate int
-		rate, err = strconv.Atoi(rateStr)
-		if err != nil {
-			return
-		}
-
-		if autorate {
-			rate = int(iface.LinkSpeed)
-		}
-		err = app.QoSManager.EnableTcOnInterface(ifaceName, uint32(rate))
-		if err != nil {
-			return
-		}
-	} else {
+	if disableQoS && iface.QoSEnabled {
 		err = app.QoSManager.DisableTcOnInterface(ifaceName)
 		if err != nil {
 			return
 		}
+		iface.QoSEnabled = false
+		c.HTML(http.StatusOK, "interface_table_row", gin.H{
+			"Iface":   iface,
+			"Message": "Disabled QoS on interface: " + ifaceName,
+		})
+		return
 	}
 
-	iface = app.QoSManager.Ifaces[ifaceName]
-	c.HTML(http.StatusOK, "interface_table_row", gin.H{
-		"Iface":   iface,
-		"Message": "Interface settings applied successfully",
-	})
+	rate, err := rateFromString(rateStr)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	if autorate {
+		rate = iface.LinkSpeed
+	}
+	if enableQoS && !iface.QoSEnabled {
+		err = app.QoSManager.EnableTcOnInterface(ifaceName, uint32(rate))
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		iface.QoSEnabled = true
+		c.HTML(http.StatusOK, "interface_table_row", gin.H{
+			"Iface":   iface,
+			"Message": "Successfully enabled QoS on interface: " + ifaceName,
+		})
+		return
+	}
+
+	if rate != iface.ShapingRate {
+		err = app.QoSManager.ChangeInterfaceRate(ifaceName, rate)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		c.HTML(http.StatusOK, "interface_table_row", gin.H{
+			"Iface":   iface,
+			"Message": "Successfully changed rate for interface " + ifaceName + " to " + rateStr + " Mbps",
+		})
+		return
+	}
 }
 
 func (app *Server) PostDNSSettings(c *gin.Context) {
@@ -133,4 +144,16 @@ func SendSuccessMessage(c *gin.Context, message ...string) {
 	c.HTML(http.StatusOK, "toast_success", gin.H{
 		"Message": msg,
 	})
+}
+
+func rateFromString(rate string) (uint32, error) {
+	if rate == "" {
+		return 0, fmt.Errorf("please provide a rate for the interface")
+	}
+
+	rateInt, err := strconv.Atoi(rate)
+	if err != nil {
+		return 0, fmt.Errorf("invalid rate: %s", rate)
+	}
+	return uint32(rateInt), nil
 }

@@ -68,10 +68,3 @@ func IPPrefixesToProtobufIPs(ips []netip.Prefix) []*protobuf.IPPrefix {
 	}
 	return protobufIPs
 }
-
-func GetProtobufInterface(ifname string, ifIndex int32) *protobuf.Interface {
-	return protobuf.Interface_builder{
-		Name:    &ifname,
-		Ifindex: &ifIndex,
-	}.Build()
-}

@@ -38,11 +38,12 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 		}
 		iface.Interface = *netIface
 	}
+	iface.ShapingRate = rate
 
 	if m.DaemonMode {
-		err = m.sendEnableIfaceRequest(ifaceName, iface.Index)
+		err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), rate)
 	} else {
-		err = htb.InitHTBOnIface(m.TcConn, iface.Index, m.Logger)
+		err = htb.InitHTBOnIface(m.TcConn, iface.Index, rate, m.Logger)
 		if err != nil && !errors.Is(err, htb.ErrQdisExists) {
 			return err
 		}
@@ -64,7 +65,6 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate uint32) (err err
 	}
 
 	iface.QoSEnabled = true
-	iface.ShapingRate = rate
 	m.Ifaces[iface.Name] = iface
 
 	return nil
@@ -95,7 +95,7 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 	}
 
 	if m.DaemonMode {
-		err = m.sendDisableIfaceRequest(ifaceName, iface.Index)
+		err = m.sendDisableIfaceRequest(ifaceName, int32(iface.Index))
 	} else {
 		err = htb.FlushQdiscFromIface(m.TcConn, iface.Index)
 		if err != nil {
@@ -114,6 +114,65 @@ func (m *QoSManager) DisableTcOnInterface(ifaceName string) (err error) {
 	}
 
 	iface.QoSEnabled = false
+	m.Ifaces[ifaceName] = iface
+
+	return nil
+}
+
+func (m *QoSManager) ChangeInterfaceRate(ifaceName string, rate uint32) (err error) {
+	if m.Classifier == nil && !m.DaemonMode {
+		return ErrClassifierNotInitialised
+	}
+
+	defer func() {
+		if err != nil {
+			db.AddErrorLog(m.DB, err, "")
+		} else {
+			addRateChangedLog(m.DB, ifaceName, rate)
+		}
+	}()
+
+	iface, found := m.Ifaces[ifaceName]
+	if !found {
+		netIface, netErr := net.InterfaceByName(ifaceName)
+		if netErr != nil {
+			return netErr
+		}
+		iface = Interface{
+			Interface: *netIface,
+		}
+	}
+
+	if iface.QoSEnabled {
+		// first remove qdisc from interface
+		if m.DaemonMode {
+			err = m.sendDisableIfaceRequest(ifaceName, int32(iface.Index))
+		} else {
+			err = htb.FlushQdiscFromIface(m.TcConn, iface.Index)
+			if err != nil {
+				return err
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		// create new qdisc with new rate
+		if m.DaemonMode {
+			err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), rate)
+		} else {
+			err = htb.InitHTBOnIface(m.TcConn, iface.Index, rate, m.Logger)
+			if err != nil && !errors.Is(err, htb.ErrQdisExists) {
+				return err
+			}
+		}
+	}
+
+	err = db.ChangeInterfaceRate(m.DB, ifaceName, rate)
+	if err != nil {
+		return err
+	}
+	iface.ShapingRate = rate // change the rate to the new one
 	m.Ifaces[ifaceName] = iface
 
 	return nil

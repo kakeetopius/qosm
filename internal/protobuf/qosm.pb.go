@@ -173,6 +173,7 @@ type Interface struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Name        *string                `protobuf:"bytes,1,opt,name=name"`
 	xxx_hidden_Ifindex     int32                  `protobuf:"varint,2,opt,name=ifindex"`
+	xxx_hidden_Rate        uint32                 `protobuf:"varint,3,opt,name=rate"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -221,14 +222,26 @@ func (x *Interface) GetIfindex() int32 {
 	return 0
 }
 
+func (x *Interface) GetRate() uint32 {
+	if x != nil {
+		return x.xxx_hidden_Rate
+	}
+	return 0
+}
+
 func (x *Interface) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
 func (x *Interface) SetIfindex(v int32) {
 	x.xxx_hidden_Ifindex = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *Interface) SetRate(v uint32) {
+	x.xxx_hidden_Rate = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
 func (x *Interface) HasName() bool {
@@ -245,6 +258,13 @@ func (x *Interface) HasIfindex() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
+func (x *Interface) HasRate() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
 func (x *Interface) ClearName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Name = nil
@@ -255,11 +275,17 @@ func (x *Interface) ClearIfindex() {
 	x.xxx_hidden_Ifindex = 0
 }
 
+func (x *Interface) ClearRate() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Rate = 0
+}
+
 type Interface_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	Name    *string
 	Ifindex *int32
+	Rate    *uint32
 }
 
 func (b0 Interface_builder) Build() *Interface {
@@ -267,12 +293,16 @@ func (b0 Interface_builder) Build() *Interface {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Ifindex != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_Ifindex = *b.Ifindex
+	}
+	if b.Rate != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Rate = *b.Rate
 	}
 	return m0
 }
@@ -1609,10 +1639,11 @@ const file_qosm_proto_rawDesc = "" +
 	"qosm.proto\x12\aqosm.v1\"9\n" +
 	"\aService\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\x05R\x04port\x12\x1a\n" +
-	"\bprotocol\x18\x02 \x01(\x05R\bprotocol\"9\n" +
+	"\bprotocol\x18\x02 \x01(\x05R\bprotocol\"M\n" +
 	"\tInterface\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
-	"\aifindex\x18\x02 \x01(\x05R\aifindex\"9\n" +
+	"\aifindex\x18\x02 \x01(\x05R\aifindex\x12\x12\n" +
+	"\x04rate\x18\x03 \x01(\rR\x04rate\"9\n" +
 	"\bIPPrefix\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\fR\x02ip\x12\x1d\n" +
 	"\n" +

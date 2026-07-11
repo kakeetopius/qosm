@@ -12,12 +12,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func CreateQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error) {
+func CreateQdisc(tcnl *tc.Tc, ifIndex int, totalRate uint32, logger *slog.Logger) (HTBObjects, error) {
 	htbIface := HTBObjects{}
 	err := tcnl.SetOption(netlink.ExtendedAcknowledge, true) // for better error messages
 	if err != nil {
 		return htbIface, err
 	}
+
+	highClassRate, defaultClassRate, lowClassRate := getClassRates(totalRate)
 
 	util.Debug(logger, "htb: adding root qdisc", "name", "root")
 	rootHtbQdisc, err := addRootQdisc(tcnl, ifIndex)
@@ -26,25 +28,25 @@ func CreateQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, err
 	}
 
 	util.Debug(logger, "htb: adding class", "name", "htb_parent_class")
-	htbParentClass, err := addHtbClass(tcnl, ifIndex, ParentClass())
+	htbParentClass, err := addHtbClass(tcnl, ifIndex, ParentClass(totalRate))
 	if err != nil {
 		return htbIface, err
 	}
 
 	util.Debug(logger, "htb: adding class", "name", "high_priority_class")
-	highClass, err := addHtbClass(tcnl, ifIndex, HighClass())
+	highClass, err := addHtbClass(tcnl, ifIndex, HighClass(highClassRate))
 	if err != nil {
 		return htbIface, err
 	}
 
 	util.Debug(logger, "htb: adding class", "name", "low_priority_class")
-	lowClass, err := addHtbClass(tcnl, ifIndex, LowClass())
+	lowClass, err := addHtbClass(tcnl, ifIndex, LowClass(lowClassRate))
 	if err != nil {
 		return htbIface, err
 	}
 
 	util.Debug(logger, "htb: adding class", "name", "default_class")
-	defaultClass, err := addHtbClass(tcnl, ifIndex, DefaultClass())
+	defaultClass, err := addHtbClass(tcnl, ifIndex, DefaultClass(defaultClassRate))
 	if err != nil {
 		return htbIface, err
 	}

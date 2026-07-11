@@ -2,6 +2,7 @@ package htb
 
 import (
 	"log"
+	"math"
 
 	"github.com/florianl/go-tc/core"
 	"github.com/kakeetopius/qosm/internal/priority"
@@ -21,46 +22,46 @@ func Root() *HTBQdisc {
 	}
 }
 
-func ParentClass() *HTBClass {
+func ParentClass(rateMBs uint32) *HTBClass {
 	return &HTBClass{
 		Handle:       HTBPARENTCLASSHANDLE,
 		ParentHandle: HTBQDISCHANDLE,
-		Rate:         bytesPerSecFromMBsPerSec(100),
-		Burst:        calcBurst(100),
-		Cburst:       calcBurst(100),
+		Rate:         bytesPerSecFromMBsPerSec(rateMBs),
+		Burst:        calcBurst(rateMBs),
+		Cburst:       calcBurst(rateMBs),
 	}
 }
 
-func HighClass() *HTBClass {
+func HighClass(rate uint32) *HTBClass {
 	return &HTBClass{
 		Handle:        HTBHIGHPRIOCLASSHANDLE,
 		ParentHandle:  HTBPARENTCLASSHANDLE,
 		ClassPriority: uint32(HTBHIGHCLASSPRIO),
-		Rate:          bytesPerSecFromMBsPerSec(50),
-		Burst:         calcBurst(50),
-		Cburst:        calcBurst(50),
+		Rate:          bytesPerSecFromMBsPerSec(rate),
+		Burst:         calcBurst(rate),
+		Cburst:        calcBurst(rate),
 	}
 }
 
-func LowClass() *HTBClass {
+func LowClass(rate uint32) *HTBClass {
 	return &HTBClass{
 		Handle:        HTBLOWPRIOCLASSHANDLE,
 		ParentHandle:  HTBPARENTCLASSHANDLE,
 		ClassPriority: uint32(HTBLOWCLASSPRIO),
-		Rate:          bytesPerSecFromMBsPerSec(10),
-		Burst:         calcBurst(10),
-		Cburst:        calcBurst(10),
+		Rate:          bytesPerSecFromMBsPerSec(rate),
+		Burst:         calcBurst(rate),
+		Cburst:        calcBurst(rate),
 	}
 }
 
-func DefaultClass() *HTBClass {
+func DefaultClass(rate uint32) *HTBClass {
 	return &HTBClass{
 		Handle:        HTBDEFAULTCLASSHANDLE,
 		ParentHandle:  HTBPARENTCLASSHANDLE,
 		ClassPriority: uint32(HTBDEFAULTCLASSPRIO),
-		Rate:          bytesPerSecFromMBsPerSec(40),
-		Burst:         calcBurst(40),
-		Cburst:        calcBurst(40),
+		Rate:          bytesPerSecFromMBsPerSec(rate),
+		Burst:         calcBurst(rate),
+		Cburst:        calcBurst(rate),
 	}
 }
 
@@ -81,7 +82,11 @@ func LowPrioClassFilter() *FWFilter {
 }
 
 func bytesPerSecFromMBsPerSec(megaBitsPerSecond uint32) uint32 {
-	return uint32(megaBitsPerSecond*1_000_000) / 8
+	rate := uint64(megaBitsPerSecond) * 1_000_000 / 8
+
+	rate = min(rate, math.MaxUint32)
+
+	return uint32(rate)
 }
 
 func calcBurst(megabitsPerSecond uint32) uint32 {
@@ -103,4 +108,12 @@ func calcBurst(megabitsPerSecond uint32) uint32 {
 
 	// we return ticks burst as duration not size. That is what tc wants.
 	return xmitTime
+}
+
+func getClassRates(totalRate uint32) (highClassRate uint32, defaultClassRate uint32, lowClassRate uint32) {
+	highClassRate = uint32(float64(totalRate) * 50 / 100)
+	defaultClassRate = uint32(float64(totalRate) * 40 / 100)
+	lowClassRate = uint32(float64(totalRate) * 10 / 100)
+
+	return
 }

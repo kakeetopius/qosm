@@ -185,11 +185,15 @@ func DeleteInterfaceByIndex(db *sql.DB, index int) error {
 }
 
 func DisableInterface(db *sql.DB, name string) error {
-	return updateField(db, name, "enabled", false)
+	return updateInterfaceField(db, name, "enabled", false)
 }
 
 func EnableInterface(db *sql.DB, name string) error {
-	return updateField(db, name, "enabled", true)
+	return updateInterfaceField(db, name, "enabled", true)
+}
+
+func ChangeInterfaceRate(db *sql.DB, name string, rate uint32) error {
+	return updateInterfaceField(db, name, "rate", rate)
 }
 
 func InterfaceIsEnabled(db *sql.DB, name string) (bool, error) {
@@ -237,7 +241,7 @@ func GetInterfaceField(db *sql.DB, ifaceName string, field string) (any, error) 
 	return value, nil
 }
 
-func updateField(db *sql.DB, ifaceName string, field string, value any) error {
+func updateInterfaceField(db *sql.DB, ifaceName string, field string, value any) error {
 	allowed := map[string]struct{}{
 		"if_index": {},
 		"name":     {},
