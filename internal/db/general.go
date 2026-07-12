@@ -1,6 +1,8 @@
 package db
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 func Connect(dbpath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dbpath)

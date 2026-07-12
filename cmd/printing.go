@@ -19,7 +19,7 @@ func printRules(highPrio []qos.Rule, lowPrio []qos.Rule) error {
 		{"ID", "Type", "Target", "Created At"},
 	}
 	for _, rule := range highPrio {
-		highPrioTableData = append(highPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Type, rule.Target, rule.CreatedAt.String()})
+		highPrioTableData = append(highPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Type, rule.Target, rule.CreatedAt.Local().String()})
 	}
 
 	lowPrioTable := pterm.DefaultTable
@@ -27,7 +27,7 @@ func printRules(highPrio []qos.Rule, lowPrio []qos.Rule) error {
 		{"ID", "Type", "Target", "Created At"},
 	}
 	for _, rule := range lowPrio {
-		lowPrioTableData = append(lowPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Type, rule.Target, rule.CreatedAt.String()})
+		lowPrioTableData = append(lowPrioTableData, []string{fmt.Sprintf("%v", rule.ID), rule.Type, rule.Target, rule.CreatedAt.Local().String()})
 	}
 
 	if len(highPrio) > 0 {

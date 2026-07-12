@@ -96,6 +96,7 @@ func RuleListCmd() *cobra.Command {
 			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err
 			}
+			defer qosManager.Close()
 
 			highPrio, err := qosManager.GetHighPriorityRules()
 			if err != nil {

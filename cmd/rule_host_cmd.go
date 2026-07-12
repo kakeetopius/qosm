@@ -105,6 +105,7 @@ func HostRuleListCmd() *cobra.Command {
 			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err
 			}
+			defer qosManager.Close()
 
 			highPrio, err := qosManager.GetHighPriorityHostRules()
 			if err != nil {

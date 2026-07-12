@@ -47,7 +47,7 @@ func Execute() {
 func init() {
 	appConfig = viper.New()
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/config/qosm/qosm.toml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "The path to the config file (default is $HOME/config/qosm/qosm.toml)")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Run in debug mode")
 
 	rootCmd.PersistentFlags().String("db-path", "", "The path to the database file")
@@ -64,10 +64,10 @@ func init() {
 		versionCmd(),
 		RuleCmd(),
 		IfaceCmd(),
+		StatsCmd(),
 		RestoreCmd(),
 		WebCmd(),
 		DaemonCmd(),
-		StatsCmd(),
 	)
 }
 

@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/kakeetopius/qosm/internal/service"
 	"github.com/kakeetopius/qosm/web"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +29,6 @@ func runWeb() *cobra.Command {
 		Use:   "run",
 		Short: "Run the web server.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("%+v", service.Service{Port: 22, Protocol: service.IPProtocolTCP})
 			return web.Run(web.ServerOptions{
 				Addr:            appConfig.GetString("server.address"),
 				Port:            appConfig.GetInt("server.port"),

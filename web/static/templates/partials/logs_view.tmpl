@@ -24,7 +24,7 @@
 	<span class="{{$eventClass}} inline-block w-14">
 		[{{- .EventType }}]
 	</span>
-	<span class="text-zinc-400">{{ .TimeStamp }}</span>
+	<span class="text-zinc-400">{{ .TimeStamp.Local }}</span>
 	<span>{{ .Description }}</span>
 </div>
 {{ end }}
