@@ -126,6 +126,30 @@ func GetQdisc(tcnl *tc.Tc, ifIndex int, logger *slog.Logger) (HTBObjects, error)
 	return htbIface, nil
 }
 
+func GetClass(tcnl *tc.Tc, ifIndex int, classHandle uint32, logger *slog.Logger) (*tc.Object, error) {
+	_, err := findRootQdisc(tcnl, ifIndex)
+	if err != nil {
+		return nil, err
+	}
+	msg := tc.Msg{
+		Family:  unix.AF_UNSPEC,
+		Ifindex: uint32(ifIndex),
+	}
+
+	classes, qerr := tcnl.Class().Get(&msg)
+	if qerr != nil {
+		return nil, qerr
+	}
+
+	classMap := mapClassesByHandle(classes, ifIndex, logger)
+	class, found := classMap[classHandle]
+	if !found {
+		return nil, ErrClassNotFound{ClassHandle: classHandle}
+	}
+
+	return class, nil
+}
+
 // findRootQdisc searches for the root HTB  queue discipline
 // on the specified network interface. It queries all qdiscs on the system and matches
 // by interface, qdisc kind (htb), and the root qdisc handle (HTBQDISCHANDLE).

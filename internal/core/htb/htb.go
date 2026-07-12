@@ -68,3 +68,37 @@ func FindHTBEnabledIfaces() ([]net.Interface, error) {
 
 	return htbEnabledIfaces, nil
 }
+
+func GetClassStats(class *tc.Object) (stats HTBClassStats) {
+	if class == nil {
+		return
+	}
+
+	if class.Stats != nil {
+		stats.Bytes = class.Stats.Bytes
+		stats.Packets = class.Stats.Packets
+		stats.Drops = class.Stats.Drops
+		stats.Overlimits = class.Stats.Overlimits
+		stats.Bps = class.Stats.Bps
+		stats.Pps = class.Stats.Pps
+		stats.Qlen = class.Stats.Qlen
+		stats.Backlog = class.Stats.Backlog
+	}
+
+	if class.XStats != nil && class.XStats.Htb != nil {
+		stats.Lends = class.XStats.Htb.Lends
+		stats.Borrows = class.XStats.Htb.Borrows
+		stats.Giants = class.XStats.Htb.Giants
+		stats.Tokens = class.XStats.Htb.Tokens
+		stats.CTokens = class.XStats.Htb.CTokens
+	}
+
+	return
+}
+
+func (stats *HTBClassStats) Aggregate(stats2 HTBClassStats) *HTBClassStats {
+	stats.Bytes += stats2.Bytes
+	stats.Packets += stats2.Packets
+
+	return stats
+}

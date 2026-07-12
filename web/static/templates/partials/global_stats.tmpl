@@ -1,0 +1,37 @@
+{{ define "global_stats.tmpl" }}
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" id="global_stats" hx-swap-oob="true">
+
+	<div class="rounded-xl bg-zinc-800/60 p-5">
+		<p class="text-sm text-zinc-400">Total Bytes</p>
+		<h3 class="text-2xl font-semibold text-green-400 mt-1">
+			{{ .Stats.TotalBytes }}
+		</h3>
+		<p class="text-xs text-zinc-500 mt-1">Across all enabled interfaces</p>
+	</div>
+
+	<div class="rounded-xl bg-zinc-800/60 p-5">
+		<p class="text-sm text-zinc-400">Total Packets</p>
+		<h3 class="text-2xl font-semibold mt-1">
+			{{ .Stats.TotalPackets }}
+		</h3>
+		<p class="text-xs text-zinc-500 mt-1">Successfully transmitted</p>
+	</div>
+
+	<div class="rounded-xl bg-zinc-800/60 p-5">
+		<p class="text-sm text-zinc-400">Total Drops</p>
+		<h3 class="text-2xl font-semibold text-red-400 mt-1">
+			{{ .Stats.TotalDrops }}
+		</h3>
+		<p class="text-xs text-zinc-500 mt-1">Across all enabled interfaces</p>
+	</div>
+
+	<div class="rounded-xl bg-zinc-800/60 p-5">
+		<p class="text-sm text-zinc-400">Interfaces</p>
+		<h3 class="text-2xl font-semibold mt-1">
+			{{ .Stats.ActiveIfaces }} / {{ .Stats.ManagedIfaces }}
+		</h3>
+		<p class="text-xs text-zinc-500 mt-1">Active / Managed</p>
+	</div>
+
+</section>
+{{ end }}

@@ -6,9 +6,23 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/db"
 )
+
+func (app *Server) SettingsPage(c *gin.Context) {
+	session := sessions.Default(c)
+	c.HTML(http.StatusOK, "settings", gin.H{
+		"Title":       "Settings - QoS Manager",
+		"Heading":     "Settings",
+		"Description": "Configure QoS engine behavior and system preferences",
+		"User":        session.Get("username"),
+		"Role":        session.Get("role"),
+		"Settings":    app.Settings,
+		"Ifaces":      app.QoSManager.Ifaces,
+	})
+}
 
 func (app *Server) GetInterfaceSettingsPopUp(c *gin.Context) {
 	ifaceName := c.Param("ifaceName")

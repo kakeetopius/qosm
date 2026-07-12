@@ -118,6 +118,9 @@ func createRenderer() (multitemplate.Renderer, error) {
 		if page == "settings" {
 			files = append(files, "partials/interface_table_row.tmpl")
 		}
+		if page == "analytics" {
+			files = append(files, "partials/interface_stats.tmpl", "partials/global_stats.tmpl")
+		}
 		r.AddFromFSFuncs(page, funcMap, tmplSubFS, files...)
 	}
 
@@ -129,6 +132,7 @@ func createRenderer() (multitemplate.Renderer, error) {
 	r.AddFromFSFuncs("logs_view", funcMap, tmplSubFS, "partials/logs_view.tmpl")
 	r.AddFromFSFuncs("interface_settings", funcMap, tmplSubFS, "partials/interface_settings.tmpl")
 	r.AddFromFSFuncs("interface_table_row", funcMap, tmplSubFS, "partials/interface_table_row.tmpl", "partials/toast_success.tmpl")
+	r.AddFromFSFuncs("analytics_refresh", funcMap, tmplSubFS, "partials/analytics_refresh.tmpl", "partials/interface_stats.tmpl", "partials/global_stats.tmpl")
 	return r, nil
 }
 

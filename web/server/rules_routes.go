@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/kakeetopius/qosm/internal/qos"
 )
@@ -13,6 +14,24 @@ type PostForm struct {
 	RuleType string `form:"type"`
 	Target   string `form:"target"`
 	Priority string `form:"priority"`
+}
+
+func (app *Server) RulesPage(c *gin.Context) {
+	session := sessions.Default(c)
+	rules, err := app.QoSManager.GetAllRules()
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.HTML(http.StatusOK, "rules", gin.H{
+		"Title":       "Rules - QoS Manager",
+		"Heading":     "Rules",
+		"Description": "Define how network traffic should be prioritized or limited",
+		"User":        session.Get("username"),
+		"Role":        session.Get("role"),
+		"Rules":       rules,
+	})
 }
 
 func (app *Server) PostHostRules(c *gin.Context) {

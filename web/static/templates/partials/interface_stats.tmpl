@@ -1,0 +1,132 @@
+{{ define "interface_stats.tmpl" }}
+<div class="p-6 space-y-8 border-t border-zinc-800" id="iface-{{ .Name }}" hx-swap-oob="true">
+
+	<!-- Interface totals -->
+
+	<div>
+
+		<p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">
+			Interface Summary
+		</p>
+
+		<div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+			<div class="rounded-xl bg-zinc-800/60 p-4">
+				<p class="text-sm text-zinc-400">Bytes</p>
+				<h3 class="text-lg font-semibold">{{ .Total.Bytes }}</h3>
+			</div>
+
+			<div class="rounded-xl bg-zinc-800/60 p-4">
+				<p class="text-sm text-zinc-400">Packets</p>
+				<h3 class="text-lg font-semibold">{{ .Total.Packets }}</h3>
+			</div>
+
+			<div class="rounded-xl bg-zinc-800/60 p-4">
+				<p class="text-sm text-zinc-400">Drops</p>
+				<h3 class="text-lg font-semibold text-red-400">
+					{{ .Total.Drops }}
+				</h3>
+			</div>
+
+			<div class="rounded-xl bg-zinc-800/60 p-4">
+				<p class="text-sm text-zinc-400">Overlimits</p>
+				<h3 class="text-lg font-semibold text-yellow-300">
+					{{ .Total.Overlimits }}
+				</h3>
+			</div>
+
+		</div>
+
+	</div>
+
+	<!-- HTB Classes -->
+
+	<div>
+
+		<p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">
+			HTB Classes
+		</p>
+
+		<div class="grid lg:grid-cols-3 gap-6">
+
+			<!-- High -->
+
+			<div class="rounded-2xl border border-green-700/40 bg-zinc-950 p-5">
+
+				<h3 class="font-semibold text-green-400 mb-4">
+					High Priority
+				</h3>
+
+				<div class="space-y-2 text-sm">
+
+					<div class="flex justify-between"><span class="text-zinc-400">Bytes</span><span>{{
+							.HighPrioClass.Bytes }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Packets</span><span>{{
+							.HighPrioClass.Packets }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Drops</span><span>{{
+							.HighPrioClass.Drops }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Overlimits</span><span>{{
+							.HighPrioClass.Overlimits }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Backlog</span><span>{{
+							.HighPrioClass.Backlog }}</span></div>
+
+				</div>
+
+			</div>
+
+			<!-- Default -->
+
+			<div class="rounded-2xl border border-blue-700/40 bg-zinc-950 p-5">
+
+				<h3 class="font-semibold text-blue-400 mb-4">
+					Default
+				</h3>
+
+				<div class="space-y-2 text-sm">
+
+					<div class="flex justify-between"><span class="text-zinc-400">Bytes</span><span>{{
+							.DefaultClass.Bytes }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Packets</span><span>{{
+							.DefaultClass.Packets }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Drops</span><span>{{
+							.DefaultClass.Drops }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Overlimits</span><span>{{
+							.DefaultClass.Overlimits }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Backlog</span><span>{{
+							.DefaultClass.Backlog }}</span></div>
+
+				</div>
+
+			</div>
+
+			<!-- Low -->
+
+			<div class="rounded-2xl border border-amber-700/40 bg-zinc-950 p-5">
+
+				<h3 class="font-semibold text-amber-400 mb-4">
+					Low Priority
+				</h3>
+
+				<div class="space-y-2 text-sm">
+
+					<div class="flex justify-between"><span class="text-zinc-400">Bytes</span><span>{{
+							.LowPrioClass.Bytes }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Packets</span><span>{{
+							.LowPrioClass.Packets }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Drops</span><span>{{
+							.LowPrioClass.Drops }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Overlimits</span><span>{{
+							.LowPrioClass.Overlimits }}</span></div>
+					<div class="flex justify-between"><span class="text-zinc-400">Backlog</span><span>{{
+							.LowPrioClass.Backlog }}</span></div>
+
+				</div>
+
+			</div>
+
+		</div>
+
+	</div>
+
+</div>
+{{ end }}

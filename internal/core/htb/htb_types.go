@@ -57,6 +57,23 @@ type FWFilter struct {
 	ClassID      uint32
 }
 
+type HTBClassStats struct {
+	Bytes      uint64 /* Number of enqueued bytes */
+	Packets    uint32 /* Number of enqueued packets	*/
+	Drops      uint32 /* Packets dropped because of lack of resources */
+	Overlimits uint32 /* Number of throttle events when this
+	 * flow goes out of allocated bandwidth */
+	Bps     uint32 /* Current flow byte rate */
+	Pps     uint32 /* Current flow packet rate */
+	Qlen    uint32
+	Backlog uint32
+	Lends   uint32
+	Borrows uint32
+	Giants  uint32
+	Tokens  uint32
+	CTokens uint32
+}
+
 var ErrQdiscNotFound = errors.New("qdisc not found")
 
 var ErrQdisExists = errors.New("qdisc already exists on the interface")

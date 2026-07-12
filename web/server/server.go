@@ -56,27 +56,37 @@ func (app *Server) InitQoSManager(opts qos.Options) error {
 func (app *Server) AddRoutes(router *gin.Engine) {
 	router.Use(ErrorHandlerHTML())
 
+	// login
 	auth := router.Group("/")
 	auth.GET("/login", app.LoginPage)
-	auth.POST("/login", app.LoginPost)
+	auth.POST("/login", app.Login)
 
+	// pages
 	admin := router.Group("/", AuthRequired(app), ErrorHandlerToast(app))
 	admin.GET("/dashboard", app.DashboardPage)
 	admin.GET("/rules", app.RulesPage)
 	admin.GET("/analytics", app.AnalyticsPage)
 	admin.GET("/logs", app.LogsPage)
-	admin.GET("/logs/filter", app.LogsFilter)
-	admin.DELETE("/logs/delete", app.LogsDelete)
 
+	// settingss
 	admin.GET("/settings", app.SettingsPage)
 	admin.POST("/settings/interfaces/:ifaceName", app.PostInterfaceSettings)
 	admin.GET("/settings/interfaces/:ifaceName", app.GetInterfaceSettingsPopUp)
 	admin.POST("/settings/dns/save", app.PostDNSSettings)
 	admin.POST("/settings/security/save", app.PostSecuritySettings)
 
+	// analytics
+	admin.GET("/analytics/refresh", app.AnalyticsRefresh)
+
+	// rules
 	admin.POST("/rules/create", app.PostHostRules)
 	admin.DELETE("/rules/:type/:id", app.DeleteHostRule)
 
+	// logs
+	admin.GET("/logs/filter", app.LogsFilter)
+	admin.DELETE("/logs/delete", app.LogsDelete)
+
+	// logout
 	admin.GET("/logout", app.Logout)
 	admin.GET("/", app.DashboardPage)
 }

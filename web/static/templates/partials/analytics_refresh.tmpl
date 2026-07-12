@@ -1,0 +1,9 @@
+{{ define "analytics_refresh.tmpl" }}
+
+{{ block "global_stats.tmpl" . }} {{ end }}
+
+{{ range .Stats.IfaceStats }}
+{{ block "interface_stats.tmpl" . }} {{ end }}
+{{ end }}
+
+{{ end }}
