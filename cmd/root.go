@@ -2,11 +2,13 @@
 package cmd
 
 import (
+	"cmp"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 
 	goversion "github.com/caarlos0/go-version"
 	"github.com/kakeetopius/qosm/internal/core/nft"
@@ -24,7 +26,7 @@ var (
 	appConfig *viper.Viper
 )
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command
 var rootCmd = &cobra.Command{
 	Use:          "qosm",
 	Short:        "A quality of service manager.",
@@ -50,9 +52,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "The path to the config file (default is $HOME/config/qosm/qosm.toml)")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Run in debug mode")
 
-	rootCmd.PersistentFlags().String("db-path", "", "The path to the database file")
+	rootCmd.PersistentFlags().String("db-path", "", "The path to the database file. ($HOME/config/qosm/qos.db)")
 	appConfig.BindPFlag("db.path", rootCmd.PersistentFlags().Lookup("db-path"))
-	appConfig.SetDefault("db.path", "./qos.db")
 
 	rootCmd.PersistentFlags().BoolVarP(&deamonMode, "daemon-mode", "d", false, "Run in daemon mode. In this mode priviliged operations like enabling tc on an interface are sent to the qos daemon")
 
@@ -88,21 +89,23 @@ func initConfig() error {
 		appConfig.SetConfigName("qosm")
 	}
 
-	appConfig.AutomaticEnv() // read in environment variables that match
+	defer printConfigs()
+
+	// set default database path
+	dbPath, err := getDefaultDBPath()
+	if err != nil {
+		return err
+	}
+	appConfig.SetDefault("db.path", dbPath)
 
 	// If a config file is found, read it in.
-	err := appConfig.ReadInConfig()
+	err = appConfig.ReadInConfig()
 	if err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			// ignore error file not found
 			return nil
 		}
 		return fmt.Errorf("error reading config file %v: %w", appConfig.ConfigFileUsed(), err)
-	}
-
-	if debug {
-		fmt.Fprintln(os.Stderr, "Using config file:", appConfig.ConfigFileUsed())
-		fmt.Fprintln(os.Stderr, "Using db file:", appConfig.GetString("db.path"))
 	}
 
 	return nil
@@ -142,10 +145,30 @@ func configDir() (string, error) {
 	}
 }
 
+func getDefaultDBPath() (string, error) {
+	configDir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "qosm", "qos.db"), nil
+}
+
 func buildVersion() goversion.Info {
 	return goversion.GetVersionInfo(
 		goversion.WithAppDetails("qosm", "A quality of service manager", ""),
 	)
+}
+
+func printConfigs() {
+	if !debug {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Using db file:", appConfig.GetString("db.path"))
+	fmt.Fprintln(os.Stderr, "Using config file:", cmp.Or(appConfig.ConfigFileUsed(), "none"))
+	fmt.Fprintln(os.Stderr, "Using daemon socket:", appConfig.GetString("daemon.sock"))
+	fmt.Fprintln(os.Stderr, "Running in daemon mode: ", deamonMode)
+
+	fmt.Fprintln(os.Stderr)
 }
 
 func getQosManager(nftOpts nft.NFTOpts) (*qos.QoSManager, error) {

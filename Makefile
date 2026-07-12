@@ -1,10 +1,11 @@
 .DEFAULT_GOAL = build
 
 build: 
-	@go build .
+	@go build . -o qosm
 
 install:
-	@go install -ldflags="-s -w"
+	@go build -ldflags="-s -w" -o qosm
+	@mv ./qosm /usr/local/bin
 
 PROTO_DIR := ./internal/protobuf
 

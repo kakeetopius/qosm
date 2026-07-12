@@ -32,7 +32,7 @@ func IfaceEnableCmd() *cobra.Command {
 		rate        = new(uint32)
 		percentages []string
 	)
-	defaultPercentages := []string{"50", "10", "40"}
+	defaultPercentages := []string{"50", "40", "10"}
 
 	ifaceEnableCmd := cobra.Command{
 		Use:     "enable interface_names...",

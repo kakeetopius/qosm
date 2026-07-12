@@ -2,6 +2,9 @@ package db
 
 import (
 	"database/sql"
+	"errors"
+	"os"
+	"path/filepath"
 )
 
 func Connect(dbpath string) (*sql.DB, error) {
@@ -91,10 +94,31 @@ func SetUp(db *sql.DB) error {
 }
 
 func NewConn(dbpath string) (*sql.DB, error) {
+	err := createDBFileIfNotExists(dbpath)
+	if err != nil {
+		return nil, err
+	}
 	db, err := Connect(dbpath)
 	if err != nil {
 		return nil, err
 	}
 	err = SetUp(db)
 	return db, err
+}
+
+func createDBFileIfNotExists(dbpath string) error {
+	_, err := os.Stat(dbpath)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Dir(dbpath), 0o755)
+	if err != nil {
+		return err
+	}
+	_, err = os.Create(dbpath)
+	return err
 }
