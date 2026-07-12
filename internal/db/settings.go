@@ -8,9 +8,6 @@ import (
 )
 
 type Settings struct {
-	LoggingLevel   string `form:"logging_level"`
-	MaxBandwidth   int    `form:"max_bandwidth"`
-	IfaceName      string `form:"interface"`
 	DNSOverride    bool   `form:"dns_override"`
 	PrimaryDNS     string `form:"primary_dns"`
 	SessionTimeout int    `form:"session_timeout"`
@@ -28,8 +25,6 @@ func LoadSettings(db *sql.DB) (*Settings, error) {
 
 	defaultSettings := Settings{
 		SessionTimeout: 5,
-		LoggingLevel:   "Info",
-		MaxBandwidth:   1000,
 	}
 
 	err = addSettingsRow(db, &defaultSettings)
@@ -43,14 +38,12 @@ func UpdateSettings(db *sql.DB, s *Settings) error {
 	_, err := db.Exec(
 		`
     INSERT OR REPLACE INTO settings (
-        id, logging_level, max_bandwidth,
+        id, 
         dns_override, primary_dns, session_timeout
     )
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?)
 `,
 		1,
-		s.LoggingLevel,
-		s.MaxBandwidth,
 		s.DNSOverride,
 		s.PrimaryDNS,
 		s.SessionTimeout,
@@ -61,8 +54,6 @@ func UpdateSettings(db *sql.DB, s *Settings) error {
 
 func UpdateSettingsField(db *sql.DB, field string, value any) error {
 	allowed := map[string]struct{}{
-		"logging_level":   {},
-		"max_bandwidth":   {},
 		"dns_override":    {},
 		"primary_dns":     {},
 		"session_timeout": {},
@@ -83,8 +74,6 @@ func UpdateSettingsField(db *sql.DB, field string, value any) error {
 
 func GetSettingsField(db *sql.DB, field string) (any, error) {
 	allowed := map[string]struct{}{
-		"logging_level":   {},
-		"max_bandwidth":   {},
 		"dns_override":    {},
 		"primary_dns":     {},
 		"session_timeout": {},
@@ -136,14 +125,12 @@ func addSettingsRow(db *sql.DB, settings *Settings) error {
 	_, err := db.Exec(
 		`
     INSERT OR IGNORE INTO settings (
-        id,  logging_level, max_bandwidth,
+        id, 
         dns_override, primary_dns, session_timeout
     )
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?)
 `,
 		1,
-		settings.LoggingLevel,
-		settings.MaxBandwidth,
 		settings.DNSOverride,
 		settings.PrimaryDNS,
 		settings.SessionTimeout,
@@ -159,16 +146,13 @@ func getSettingsRow(db *sql.DB) (*Settings, error) {
 	)
 
 	row := db.QueryRow(`
-        SELECT  logging_level, max_bandwidth,
-                dns_override, primary_dns,
+        SELECT  dns_override, primary_dns,
                 session_timeout
         FROM settings
         WHERE id = 1
     `)
 
 	err := row.Scan(
-		&s.LoggingLevel,
-		&s.MaxBandwidth,
 		&dnsOverride,
 		&s.PrimaryDNS,
 		&s.SessionTimeout,

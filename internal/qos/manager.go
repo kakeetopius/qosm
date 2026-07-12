@@ -54,7 +54,7 @@ func (m *QoSManager) InitQoSClassifier(createIfNotExists bool) error {
 	return nil
 }
 
-func (m *QoSManager) InitSavedRules() error {
+func (m *QoSManager) RestoreRules() error {
 	if m.Classifier == nil && !m.DaemonMode {
 		return ErrClassifierNotInitialised
 	}
@@ -257,26 +257,25 @@ func (m *QoSManager) getNetInterfaces() error {
 
 		var rate uint32
 		var percentages htb.ClassPercentages
+		var qosEnabled bool
 		if exists {
-			dbrate, err := db.GetInterfaceField(m.DB, iface.Name, "rate")
+			dbIface, err := db.InterfaceByName(m.DB, iface.Name)
 			if err != nil {
 				return err
 			}
-			rate64 := dbrate.(int64)
-			rate = uint32(rate64)
-
-			percentages, err = db.GetInterfaceClassPercentages(m.DB, iface.Name)
-			if err != nil {
-				return err
-			}
+			rate = dbIface.Rate
+			percentages = dbIface.Percentages
+			qosEnabled = dbIface.Enabled
 		} else {
 			percentages = htb.DefaultClassPercentages()
+			rate = DEFAULTRATE
 		}
 
 		m.Ifaces[iface.Name] = Interface{
 			Interface:   iface,
 			LinkSpeed:   speed,
 			ShapingRate: rate,
+			QoSEnabled:  qosEnabled,
 			Percentages: percentages,
 		}
 	}

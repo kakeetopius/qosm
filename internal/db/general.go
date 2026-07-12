@@ -18,8 +18,6 @@ func SetUp(db *sql.DB) error {
 	schema := `
     CREATE TABLE IF NOT EXISTS settings (
         id INTEGER PRIMARY KEY,
-        logging_level TEXT DEFAULT 'Info',
-        max_bandwidth INTEGER DEFAULT '1000',
         dns_override BOOLEAN,
         primary_dns TEXT,
         session_timeout INTEGER DEFAULT 5

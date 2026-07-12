@@ -78,7 +78,7 @@ type HTBClassStats struct {
 
 var ErrQdiscNotFound = errors.New("qdisc not found")
 
-var ErrQdisExists = errors.New("qdisc already exists on the interface")
+var ErrQdiscExists = errors.New("qdisc already exists on the interface")
 
 type ErrClassNotFound struct {
 	ClassName   string

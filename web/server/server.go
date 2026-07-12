@@ -40,12 +40,12 @@ func (app *Server) InitQoSManager(opts qos.Options) error {
 	}
 	app.QoSManager = qosManager
 
-	err = app.QoSManager.InitSavedRules()
+	err = app.QoSManager.RestoreRules()
 	if err != nil {
 		return err
 	}
 
-	err = app.QoSManager.InitSavedInterfaceSettings()
+	err = app.QoSManager.RestoreInterfaceStates()
 	if err != nil {
 		return err
 	}

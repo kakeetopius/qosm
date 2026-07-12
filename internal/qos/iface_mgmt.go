@@ -50,6 +50,17 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate *uint32, classPe
 	if !found {
 		return fmt.Errorf("unknown interface: %v", ifaceName)
 	}
+	defer func() {
+		m.Ifaces[ifaceName] = iface
+	}()
+
+	qdiscExists, err := htb.HasHTBQdisc(m.TcConn, iface.Index)
+	if err != nil {
+		return err
+	}
+	if qdiscExists {
+		return htb.ErrQdiscExists
+	}
 
 	if m.DaemonMode {
 		err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), *rate, *classPercentages)
@@ -61,10 +72,10 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate *uint32, classPe
 
 		err = m.Classifier.AddIfaces([]string{iface.Name})
 	}
-
 	if err != nil {
 		return err
 	}
+
 	err = db.AddInterface(m.DB, db.DBInterface{
 		Name:        iface.Name,
 		IfaceIndex:  iface.Index,
@@ -79,7 +90,6 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate *uint32, classPe
 	iface.QoSEnabled = true
 	iface.ShapingRate = *rate
 	iface.Percentages = *classPercentages
-	m.Ifaces[iface.Name] = iface
 
 	return nil
 }
@@ -164,7 +174,7 @@ func (m *QoSManager) ChangeInterfaceRate(ifaceName string, rate uint32) (err err
 			err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), rate, iface.Percentages)
 		} else {
 			err = htb.InitHTBOnIface(m.TcConn, iface.Index, rate, iface.Percentages, m.Logger)
-			if err != nil && !errors.Is(err, htb.ErrQdisExists) {
+			if err != nil && !errors.Is(err, htb.ErrQdiscExists) {
 				return err
 			}
 		}
@@ -222,7 +232,7 @@ func (m *QoSManager) ChangeClassPercentages(ifaceName string, newPercentages htb
 			err = m.sendEnableIfaceRequest(ifaceName, int32(iface.Index), iface.ShapingRate, newPercentages)
 		} else {
 			err = htb.InitHTBOnIface(m.TcConn, iface.Index, iface.ShapingRate, newPercentages, m.Logger)
-			if err != nil && !errors.Is(err, htb.ErrQdisExists) {
+			if err != nil && !errors.Is(err, htb.ErrQdiscExists) {
 				return err
 			}
 		}
@@ -238,32 +248,20 @@ func (m *QoSManager) ChangeClassPercentages(ifaceName string, newPercentages htb
 	return nil
 }
 
-func (m *QoSManager) InitSavedInterfaceSettings() error {
+func (m *QoSManager) RestoreInterfaceStates() error {
 	if m.Classifier == nil && !m.DaemonMode {
 		return ErrClassifierNotInitialised
 	}
-	enabledIfaces, err := db.GetEnabledInterfaces(m.DB)
-	if err != nil {
-		return err
-	}
 
-	for _, iface := range enabledIfaces {
-		err = m.EnableTcOnInterface(iface.Name, &iface.Rate, &iface.Percentages)
-		if err != nil {
+	for _, iface := range m.Ifaces {
+		if !iface.QoSEnabled {
+			continue
+		}
+		err := m.EnableTcOnInterface(iface.Name, &iface.ShapingRate, &iface.Percentages)
+		if err != nil && !errors.Is(err, htb.ErrQdiscExists) {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func (m *QoSManager) EnabledInterfaces() []Interface {
-	enabled := make([]Interface, 0, len(m.Ifaces))
-	for _, iface := range m.Ifaces {
-		if iface.QoSEnabled {
-			enabled = append(enabled, iface)
-		}
-	}
-
-	return enabled
 }

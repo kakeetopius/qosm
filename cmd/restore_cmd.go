@@ -54,12 +54,12 @@ func runRestore() error {
 		return err
 	}
 
-	err = qosManager.InitSavedRules()
+	err = qosManager.RestoreRules()
 	if err != nil {
 		return err
 	}
 
-	err = qosManager.InitSavedInterfaceSettings()
+	err = qosManager.RestoreInterfaceStates()
 	if err != nil {
 		return err
 	}
