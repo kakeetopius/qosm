@@ -2,7 +2,9 @@
 package util
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"strings"
 
@@ -93,4 +95,15 @@ func IPPrefixFromString(ip string) (netip.Prefix, error) {
 	}
 
 	return addr, nil
+}
+
+func LookupIPs(domain string) ([]netip.Prefix, error) {
+	resolver := net.Resolver{
+		PreferGo: true,
+	}
+	ips, error := resolver.LookupIP(context.Background(), "ip", domain)
+	if error != nil {
+		return nil, error
+	}
+	return IPSlicestoNetIPPRefix(ips), nil
 }

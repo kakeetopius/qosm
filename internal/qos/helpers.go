@@ -266,7 +266,7 @@ func addClassPercentagesChangedLog(dbCon *sql.DB, iface string, newPercentages h
 	)
 }
 
-func ipSliceToString(ips []net.IP) string {
+func ipSliceToString(ips []netip.Prefix) string {
 	if len(ips) == 0 {
 		return ""
 	}

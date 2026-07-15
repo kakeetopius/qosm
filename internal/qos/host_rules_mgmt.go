@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 
 	"github.com/kakeetopius/qosm/internal/db"
@@ -41,7 +40,7 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule,
 		return Rule{}, fmt.Errorf("%v seems to be an IP address not a domain", domain)
 	}
 
-	ips, err := net.LookupIP(domain)
+	addrs, err := util.LookupIPs(domain)
 	if err != nil {
 		util.Debug(m.Logger, "resolve_error", "domain_name", domain, "error", err.Error())
 		return Rule{}, err
@@ -49,10 +48,8 @@ func (m *QoSManager) AddDomainRule(domain string, prioString string) (rule Rule,
 
 	db.AddLog(m.DB, db.Log{
 		EventType:   "DNS",
-		Description: "Resolved domain " + domain + " to " + ipSliceToString(ips),
+		Description: "Resolved domain " + domain + " to " + ipSliceToString(addrs),
 	})
-
-	addrs := util.IPSlicestoNetIPPRefix(ips)
 
 	if m.DaemonMode {
 		err = m.sendAddHostsRequest(addrs, prio)

@@ -2,7 +2,6 @@ package qos
 
 import (
 	"errors"
-	"net"
 	"net/netip"
 
 	"github.com/kakeetopius/qosm/internal/db"
@@ -33,12 +32,11 @@ func (m *QoSManager) RefreshAllDomains() error {
 			return err
 		}
 
-		addrs, err := net.LookupIP(domain.DomainName)
+		newIPs, err := util.LookupIPs(domain.DomainName)
 		if err != nil {
 			util.Error(m.Logger, "resolve_error", "domain_name", domain.DomainName, "error", err.Error())
 			return err
 		}
-		newIPs := util.IPSlicestoNetIPPRefix(addrs)
 
 		err = m.clearOldIPs(&domain, oldIPs)
 		if err != nil {
