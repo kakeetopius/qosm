@@ -1,4 +1,4 @@
-# qos-manager
+# qosm
 
 A Linux based Quality of Service (QoS) manager that prioritizes critical network traffic over other traffic to improve network performance during periods of congestion.
 
@@ -38,7 +38,7 @@ qosm communicates directly with both nftables and tc through the Linux [Netlink]
 
 ```bash
 # Clone the repository
-git clone https://github.com/kakeetopius/qos-manager
+git clone https://github.com/kakeetopius/qosm
 cd qos-manager
 
 # Build the binary
