@@ -31,6 +31,7 @@ type QosTable struct {
 
 	OutputChain  QosChain
 	ForwardChain QosChain
+	InputChain   QosChain
 
 	IPSets      QosIPSets
 	ServiceSets QosServiceSets
@@ -47,12 +48,12 @@ type QosChain struct {
 
 // QosRules holds the nftables rules for high and low priority traffic.
 type QosRules struct {
-	HighPrioIP4Rule     *nftables.Rule // Marks packets destined for high-priority IPv4 addresses.
-	LowPrioIP4Rule      *nftables.Rule // Marks packets destined for low-priority IPv4 addresses.
-	HighPrioIP6Rule     *nftables.Rule // Marks packets destined for high-priority IPv6 addresses.
-	LowPrioIP6Rule      *nftables.Rule // Marks packets destined for low-priority IPv6 addresses.
-	HighPrioServiceRule *nftables.Rule // Marks packets destined for high-priority services (protocol/port).
-	LowPrioServiceRule  *nftables.Rule // Marks packets destined for low-priority services (protocol/port).
+	HighPrioIP4Rule     *nftables.Rule // Marks packets that have high-priority IPv4 addresses.
+	LowPrioIP4Rule      *nftables.Rule // Marks packets that have low-priority IPv4 addresses.
+	HighPrioIP6Rule     *nftables.Rule // Marks packets that have high-priority IPv6 addresses.
+	LowPrioIP6Rule      *nftables.Rule // Marks packets that have low-priority IPv6 addresses.
+	HighPrioServiceRule *nftables.Rule // Marks packets that have high-priority services (protocol/port).
+	LowPrioServiceRule  *nftables.Rule // Marks packets that have low-priority services (protocol/port).
 }
 
 // QosIPSets holds the nftables ip sets for high and low priority traffic.
@@ -80,6 +81,7 @@ const (
 	TABLENAME        = "qosmtable"
 	OUTPUTCHAINNAME  = "output"
 	FORWARDCHAINNAME = "forward"
+	INPUTCHAINNAME   = "input"
 )
 
 const (
@@ -117,6 +119,7 @@ type ruleParams struct {
 	keyExtractor []expr.Any    // nftables expressions that extract the lookup key for the targetSet from the packet into register 1.
 	targetSet    *nftables.Set // Set against which the lookup is performed to determine whether the rule matches.
 	ifaceSet     *nftables.Set // set containing names of the interfaces on which qos is enabled.
+	ifaceType    expr.MetaKey  // Indicates whether the interfaces in ifaceSet are incoming or outgoing.
 	mark         int           // mark to set on packets that the rule matches
 }
 
@@ -182,12 +185,34 @@ func DstIPv4Extractor() []expr.Any {
 	}
 }
 
+func SrcIPv4Extractor() []expr.Any {
+	return []expr.Any{
+		&expr.Payload{
+			DestRegister: unix.NFT_REG_1,
+			Base:         expr.PayloadBaseNetworkHeader,
+			Offset:       12, // bytes from start of the IPv4 header (source IP)
+			Len:          4,  // 4 bytes of the IPv4 address
+		},
+	}
+}
+
 func DstIPv6Extractor() []expr.Any {
 	return []expr.Any{
 		&expr.Payload{
 			DestRegister: unix.NFT_REG_1,
 			Base:         expr.PayloadBaseNetworkHeader,
 			Offset:       24, // Destination IPv6 address
+			Len:          16, // 128-bit IPv6 address
+		},
+	}
+}
+
+func SrcIPv6Extractor() []expr.Any {
+	return []expr.Any{
+		&expr.Payload{
+			DestRegister: unix.NFT_REG_1,
+			Base:         expr.PayloadBaseNetworkHeader,
+			Offset:       8,  // Source IPv6 address
 			Len:          16, // 128-bit IPv6 address
 		},
 	}
@@ -208,6 +233,26 @@ func DstProtoPortExtractor() []expr.Any {
 			Base:         expr.PayloadBaseTransportHeader,
 			Offset:       2, // Destination port is after the 2-byte source port.
 			Len:          2, // 16-bit TCP/UDP destination port.
+		},
+	}
+}
+
+// SrcProtoPortExtractor returns payload expressions that load the concatenation
+// of the layer 4 protocol and transport-layer source port (TCP or UDP)
+// from the packet into register 1.
+func SrcProtoPortExtractor() []expr.Any {
+	return []expr.Any{
+		// Load layer 4 protocol into reg 1.
+		// Reg 1 is 16 bytes divided into 4 smaller registers (4 bytes each).
+		&expr.Meta{
+			Key:      expr.MetaKeyL4PROTO,
+			Register: unix.NFT_REG32_00, // Loads into the first sub-register inside register 1.
+		},
+		&expr.Payload{
+			DestRegister: unix.NFT_REG32_01, // Loads into the second sub-register inside register 1.
+			Base:         expr.PayloadBaseTransportHeader,
+			Offset:       0, // Source port is the first field in the TCP/UDP header.
+			Len:          2, // 16-bit TCP/UDP source port.
 		},
 	}
 }

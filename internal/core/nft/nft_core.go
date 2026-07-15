@@ -98,6 +98,18 @@ func (c *NFT) initChains() error {
 	}
 	c.initRules(&forwardChain)
 	c.QosTable.ForwardChain = forwardChain
+
+	inputChain, err := lookupQosChain(c.conn, chainParams{
+		table:       c.QosTable.Table,
+		chainName:   INPUTCHAINNAME,
+		hook:        nftables.ChainHookInput,
+		chainPolicy: nftables.ChainPolicyAccept,
+	}, &c.opts)
+	if err != nil {
+		return err
+	}
+	c.initRules(&inputChain)
+	c.QosTable.InputChain = inputChain
 	return nil
 }
 
@@ -110,14 +122,28 @@ func (c *NFT) initRules(chain *QosChain) error {
 	// Rule 5: checks if the dst ipv6 is in low priority ip set and if so marks the packet with lowprio mark and returns from the chain
 	// Rule 6: checks if the dst port  and l4 protocol is in low priority port set and if so marks the packet with lowprio mark and returns from the chain
 
+	ip4AddressExtractor := DstIPv4Extractor()
+	ip6AddressExtractor := DstIPv6Extractor()
+	serviceExtractor := DstProtoPortExtractor()
+	ifaceType := expr.MetaKeyOIFNAME
+
+	if chain.Hooknum == nftables.ChainHookInput {
+		// if are working with input chain the keys are reversed to match source ip / port
+		ip4AddressExtractor = SrcIPv4Extractor()
+		ip6AddressExtractor = SrcIPv6Extractor()
+		serviceExtractor = SrcProtoPortExtractor()
+		ifaceType = expr.MetaKeyIIFNAME
+	}
+
 	highPrioIP4Rule, err := lookupQosRule(c.conn, ruleParams{
 		table:        c.QosTable.Table,
 		chain:        chain.Chain,
 		ruleName:     HIGHPRIOIP4RULE,
 		l3proto:      unix.NFPROTO_IPV4,
-		keyExtractor: DstIPv4Extractor(),
+		keyExtractor: ip4AddressExtractor,
 		targetSet:    c.QosTable.IPSets.HighPrioIP4Set,
 		ifaceSet:     c.QosTable.IfaceSet,
+		ifaceType:    ifaceType,
 		mark:         int(priority.PRIORITYHIGH),
 	}, &c.opts)
 	if err != nil {
@@ -130,9 +156,10 @@ func (c *NFT) initRules(chain *QosChain) error {
 		chain:        chain.Chain,
 		ruleName:     HIGHPRIOIP6RULE,
 		l3proto:      unix.NFPROTO_IPV6,
-		keyExtractor: DstIPv6Extractor(),
+		keyExtractor: ip6AddressExtractor,
 		targetSet:    c.QosTable.IPSets.HighPrioIP6Set,
 		ifaceSet:     c.QosTable.IfaceSet,
+		ifaceType:    ifaceType,
 		mark:         int(priority.PRIORITYHIGH),
 	}, &c.opts)
 	if err != nil {
@@ -145,8 +172,9 @@ func (c *NFT) initRules(chain *QosChain) error {
 		chain:        chain.Chain,
 		ruleName:     HIGHPRIOSERVICERULE,
 		targetSet:    c.QosTable.ServiceSets.HighPrioServiceSet,
-		keyExtractor: DstProtoPortExtractor(),
+		keyExtractor: serviceExtractor,
 		ifaceSet:     c.QosTable.IfaceSet,
+		ifaceType:    ifaceType,
 		mark:         int(priority.PRIORITYHIGH),
 	}, &c.opts)
 	if err != nil {
@@ -160,8 +188,9 @@ func (c *NFT) initRules(chain *QosChain) error {
 		l3proto:      unix.NFPROTO_IPV4,
 		ruleName:     LOWPRIOIP4RULE,
 		targetSet:    c.QosTable.IPSets.LowPrioIP4Set,
-		keyExtractor: DstIPv4Extractor(),
+		keyExtractor: ip4AddressExtractor,
 		ifaceSet:     c.QosTable.IfaceSet,
+		ifaceType:    ifaceType,
 		mark:         int(priority.PRIORITYLOW),
 	}, &c.opts)
 	if err != nil {
@@ -175,8 +204,9 @@ func (c *NFT) initRules(chain *QosChain) error {
 		l3proto:      unix.NFPROTO_IPV6,
 		ruleName:     LOWPRIOIP6RULE,
 		targetSet:    c.QosTable.IPSets.LowPrioIP6Set,
-		keyExtractor: DstIPv6Extractor(),
+		keyExtractor: ip6AddressExtractor,
 		ifaceSet:     c.QosTable.IfaceSet,
+		ifaceType:    ifaceType,
 		mark:         int(priority.PRIORITYLOW),
 	}, &c.opts)
 	if err != nil {
@@ -189,8 +219,9 @@ func (c *NFT) initRules(chain *QosChain) error {
 		chain:        chain.Chain,
 		ruleName:     LOWPRIOSERVICERULE,
 		targetSet:    c.QosTable.ServiceSets.LowPrioServiceSet,
-		keyExtractor: DstProtoPortExtractor(),
+		keyExtractor: serviceExtractor,
 		ifaceSet:     c.QosTable.IfaceSet,
+		ifaceType:    ifaceType,
 		mark:         int(priority.PRIORITYLOW),
 	}, &c.opts)
 	if err != nil {
@@ -449,7 +480,7 @@ func createQosIPRule(conn *nftables.Conn, params ruleParams, logger *slog.Logger
 		// Load outgoing interface name into reg 1
 		&expr.Meta{
 			Register: unix.NFT_REG_1,
-			Key:      expr.MetaKeyOIFNAME,
+			Key:      params.ifaceType,
 		},
 
 		// Check if the outgoing interface's name is part of the interface set.
