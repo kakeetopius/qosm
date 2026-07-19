@@ -65,7 +65,7 @@ func RuleFlushCmd() *cobra.Command {
 		Aliases: []string{"f"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			qosManager, err := getQosManager(nft.NFTOpts{
-				CreateTableIfNotExists: false,
+				CreateTableIfNotExists: true,
 			})
 			if err != nil && !errors.Is(err, nft.ErrTableNotFound) {
 				return err

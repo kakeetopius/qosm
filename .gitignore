@@ -1,6 +1,6 @@
 qosm
 bin/
-qos.db
+*.db
 node_modules/
 tmp/
 package.json

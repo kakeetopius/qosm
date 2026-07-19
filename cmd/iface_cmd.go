@@ -82,7 +82,7 @@ func IfaceEnableCmd() *cobra.Command {
 		},
 	}
 
-	ifaceEnableCmd.Flags().Uint32VarP(rate, "rate", "r", qos.DEFAULTRATE, "The rate in Mbps to divide among the different priority classes.")
+	ifaceEnableCmd.Flags().Uint32VarP(rate, "rate", "r", qos.DEFAULTRATEMBPS, "The rate in Mbps to divide among the different priority classes.")
 	ifaceEnableCmd.Flags().StringSliceVarP(&percentages, "percentages", "p", defaultPercentages, "The percentages for each priority class in form high,default,low")
 
 	return &ifaceEnableCmd

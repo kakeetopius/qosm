@@ -39,7 +39,7 @@ qosm communicates directly with both nftables and tc through the Linux [Netlink]
 ```bash
 # Clone the repository
 git clone https://github.com/kakeetopius/qosm
-cd qos-manager
+cd qosm
 
 # Build the binary
 make build

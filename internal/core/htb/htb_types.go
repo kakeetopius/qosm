@@ -168,8 +168,8 @@ func ClassPercentagesFromStrings(highStr, defaultPercentageStr, lowStr string) (
 func DefaultClassPercentages() ClassPercentages {
 	return ClassPercentages{
 		HighPrioClass: 50,
-		LowPrioClass:  40,
-		DefaultClass:  10,
+		LowPrioClass:  10,
+		DefaultClass:  40,
 	}
 }
 

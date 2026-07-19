@@ -209,7 +209,7 @@ func (m *QoSManager) GetHighPriorityRules() ([]Rule, error) {
 	if err != nil {
 		return nil, err
 	}
-	serviceRules, err := db.GetAllServiceRules(m.DB)
+	serviceRules, err := db.GetHighPrioServices(m.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func (m *QoSManager) GetLowPriorityRules() ([]Rule, error) {
 	if err != nil {
 		return nil, err
 	}
-	serviceRules, err := db.GetAllServiceRules(m.DB)
+	serviceRules, err := db.GetLowPrioServices(m.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (m *QoSManager) getNetInterfaces() error {
 			qosEnabled = dbIface.Enabled
 		} else {
 			percentages = htb.DefaultClassPercentages()
-			rate = DEFAULTRATE
+			rate = DEFAULTRATEMBPS
 		}
 
 		m.Ifaces[iface.Name] = Interface{

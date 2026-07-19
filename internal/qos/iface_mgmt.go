@@ -9,7 +9,7 @@ import (
 	"github.com/kakeetopius/qosm/internal/db"
 )
 
-const DEFAULTRATE uint32 = 100
+const DEFAULTRATEMBPS uint32 = 100
 
 func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate *uint32, classPercentages *htb.ClassPercentages) (err error) {
 	if m.Classifier == nil && !m.DaemonMode {
@@ -21,7 +21,7 @@ func (m *QoSManager) EnableTcOnInterface(ifaceName string, rate *uint32, classPe
 	}
 
 	if rate == nil {
-		r := DEFAULTRATE
+		r := DEFAULTRATEMBPS
 		rate = &r
 	}
 
