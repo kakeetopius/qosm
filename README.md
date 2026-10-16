@@ -2,6 +2,10 @@
 
 A Linux based Quality of Service (QoS) manager that prioritizes critical network traffic over other traffic to improve network performance during periods of congestion.
 
+## Background
+
+qosm was developed as a class project for the Computer Networks and Cybersecurity Undergraduate course at Strathmore University. The project aimed to simplify the management of network traffic priorities on Linux systems by providing a centralized interface for defining and enforcing Quality of Service (QoS) rules.
+
 ## What it does
 
 `qosm` allows traffic to be classified and prioritized using three traffic classes: **High**, **Default**, and **Low**. Traffic can be matched using:
@@ -11,22 +15,6 @@ A Linux based Quality of Service (QoS) manager that prioritizes critical network
 - **Services**, identified by protocol and port (for example `tcp/443` or `udp/53`)
 
 `qosm` also provides a CLI, a small web interface, and an optional background daemon for privileged operations.
-
-## How it works
-
-qosm coordinates two Linux kernel subsystems to implement Quality of Service (QoS).
-
-**[nftables](https://wiki.nftables.org/wiki-nftables/index.php/Main_Page)** is responsible for packet classification. When a rule is added for the first time or an interface is enabled, `qosm` creates an nftables table containing several [named sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets). These include separate sets for high and low priority IPv4 addresses, IPv6 addresses, and services identified by protocol and port, as well as a set containing the interfaces on which QoS has been enabled. A small number of marking rules then examines incoming packets. If a packet's destination matches an entry in a high priority set, it is assigned the high priority [firewall mark (fwmark)](https://wiki.nftables.org/wiki-nftables/index.php/Setting_packet_metainformation#packet_mark_and_conntrack_mark). If it matches an entry in a low priority set, it receives the low priority fwmark. Packets that do not match any set remain unmarked and are directed to the Default traffic class. Since these marking rules only apply to interfaces listed in the QoS enabled interface set, traffic on other interfaces is processed normally.
-
-**[Linux Traffic Control (`tc`)](https://man7.org/linux/man-pages/man8/tc.8.html)** using the [Hierarchical Token Bucket (HTB)](https://man7.org/linux/man-pages/man8/tc-htb.8.html) scheduler is responsible for bandwidth management. When QoS is enabled on an interface, `qosm` creates an HTB hierarchy consisting of High, Default, and Low priority classes. Each class is assigned a configurable share of the interface's available bandwidth, after which the interface is registered in the nftables QoS interface set. During transmission, packets are placed into the appropriate HTB class according to the firewall mark assigned by nftables, allowing higher priority traffic to receive preferential treatment whenever bandwidth is limited.
-
-QoS operation consists of two independent tasks.
-
-- **Adding or editing a rule** creates the QoS nftables table if it does not already exist and updates only the appropriate nftables named set together with the local database. Existing HTB configurations remain unchanged.
-
-- **Enabling QoS on an interface** creates the HTB hierarchy, creates the QoS nftables table if necessary, installs the packet marking rules, and registers the interface in the QoS enabled interface set so that packet classification and traffic shaping become active.
-
-qosm communicates directly with both nftables and tc through the Linux [Netlink](https://www.kernel.org/doc/html/latest/userspace-api/netlink/intro.html) API using some helper Go libraries. As a result, it does not depend on external utilities such as nft or iproute2 at runtime.
 
 ## Requirements
 
@@ -127,6 +115,22 @@ qosm iface disable eth0
 
 Run `qosm <command> --help` for detailed information about any command.
 
+## How it works
+
+qosm coordinates two Linux kernel subsystems to implement Quality of Service (QoS).
+
+**[nftables](https://wiki.nftables.org/wiki-nftables/index.php/Main_Page)** is responsible for packet classification. When a rule is added for the first time or an interface is enabled, `qosm` creates an nftables table containing several [named sets](https://wiki.nftables.org/wiki-nftables/index.php/Sets). These include separate sets for high and low priority IPv4 addresses, IPv6 addresses, and services identified by protocol and port, as well as a set containing the interfaces on which QoS has been enabled. A small number of marking rules then examines incoming packets. If a packet's destination matches an entry in a high priority set, it is assigned the high priority [firewall mark (fwmark)](https://wiki.nftables.org/wiki-nftables/index.php/Setting_packet_metainformation#packet_mark_and_conntrack_mark). If it matches an entry in a low priority set, it receives the low priority fwmark. Packets that do not match any set remain unmarked and are directed to the Default traffic class. Since these marking rules only apply to interfaces listed in the QoS enabled interface set, traffic on other interfaces is processed normally.
+
+**[Linux Traffic Control (`tc`)](https://man7.org/linux/man-pages/man8/tc.8.html)** using the [Hierarchical Token Bucket (HTB)](https://man7.org/linux/man-pages/man8/tc-htb.8.html) scheduler is responsible for bandwidth management. When QoS is enabled on an interface, `qosm` creates an HTB hierarchy consisting of High, Default, and Low priority classes. Each class is assigned a configurable share of the interface's available bandwidth, after which the interface is registered in the nftables QoS interface set. During transmission, packets are placed into the appropriate HTB class according to the firewall mark assigned by nftables, allowing higher priority traffic to receive preferential treatment whenever bandwidth is limited.
+
+QoS operation consists of two independent tasks.
+
+- **Adding or editing a rule** creates the QoS nftables table if it does not already exist and updates only the appropriate nftables named set together with the local database. Existing HTB configurations remain unchanged.
+
+- **Enabling QoS on an interface** creates the HTB hierarchy, creates the QoS nftables table if necessary, installs the packet marking rules, and registers the interface in the QoS enabled interface set so that packet classification and traffic shaping become active.
+
+qosm communicates directly with both nftables and tc through the Linux [Netlink](https://www.kernel.org/doc/html/latest/userspace-api/netlink/intro.html) API using some helper Go libraries. As a result, it does not depend on external utilities such as nft or iproute2 at runtime.
+
 ## Running without sudo
 
 Most QoS operations require root privileges because they modify kernel networking configuration. Running the entire application as root, especially the web server, is undesirable from a security perspective.
@@ -194,8 +198,16 @@ Configuration meanings
 - `server.address` and `server.port` specify the address and port on which the web server listens. (Default is 0.0.0.0 meaning all addresses on port 9000)
 - `server.sessions.auth_key` and `server.sessions.enc_key` specify the keys used to authenticate and encrypt web session cookies.
 
-When the same setting is provided in multiple places, `qosm` using the `cobra` go library applies the following precedence, with higher entries taking priority over lower ones:
+When the same setting is provided in multiple places, `qosm` using the `viper` go library applies the following precedence, with higher entries taking priority over lower ones:
 
 1. Command line flags
 2. Configuration file
 3. Built in defaults
+
+## Future work
+
+Some things I'd like to improve:
+
+- **Tighten daemon authentication.** Right now the daemon is reached over a local Unix socket. It would be better to add more rigorous auth.
+- **More ways to match traffic.** Support more than destination matching, such as source addresses.
+- **Maybe a better queuing discpline than HTB.**
